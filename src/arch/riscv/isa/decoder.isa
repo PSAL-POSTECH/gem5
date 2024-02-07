@@ -1188,7 +1188,16 @@ decode QUADRANT default Unknown::unknown() {
                 }}, inst_flags=VectorIndexedStoreOp);
             }
         }
-
+        0x0a: decode FUNCT3 {
+            format ROp {
+                0x2: mvin ({{
+                    Rd = Rp1 ^ Rp2;
+                }});
+                0x3: mvout ({{
+                    Rd = Rp1 ^ Rp2;
+                }});
+            }
+        }
         0x0b: decode FUNCT3 {
             0x2: decode AMOFUNCT {
                 0x2: LoadReserved::lr_w({{
