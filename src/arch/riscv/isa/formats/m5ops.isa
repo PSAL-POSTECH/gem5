@@ -43,7 +43,7 @@ def format M5Op() {{
             } else {
                 pseudo_inst::pseudoInst<RegABI64>(xc->tcBase(), M5FUNC, result);
             }
-            a0 = rvSext(result)''',
+            ''',
             ['IsNonSpeculative', 'IsSerializeAfter'])
     header_output = BasicDeclare.subst(iop)
     decoder_output = BasicConstructor.subst(iop)
