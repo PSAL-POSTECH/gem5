@@ -222,3 +222,11 @@ class IOXBar(NoncoherentXBar):
     frontend_latency = 2
     forward_latency = 1
     response_latency = 2
+
+
+class SpmXBar(NoncoherentXBar):
+    width = 32
+
+    frontend_latency = 0
+    forward_latency = 0
+    response_latency = 0

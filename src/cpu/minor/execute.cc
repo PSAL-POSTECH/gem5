@@ -825,7 +825,8 @@ Execute::issue(ThreadID thread_id)
         fu_index != numFuncUnits && /* Not visited all FUs */
         issued && /* We've not yet failed to issue an instruction */
         num_insts_issued != issueLimit && /* Still allowed to issue */
-        num_mem_insts_issued != memoryIssueLimit);
+        ((num_mem_insts_issued != memoryIssueLimit) ||
+        !insts_in->insts[thread.inputIndex]->isMemRef()));
 
     return num_insts_issued;
 }
