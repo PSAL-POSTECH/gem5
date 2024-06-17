@@ -2665,7 +2665,7 @@ decode QUADRANT default Unknown::unknown() {
                     auto fd = fadd<et>(ftype<et>(Vs2_vu[i]),
                                        ftype<et>(Vs1_vu[i]));
                     Vd_vu[i] = fd.v;
-                }}, OPFVV, VectorFloatArithOp);
+                }}, OPFVV, VectorCustomfaddOp);
                 0x01: VectorReduceFloatFormat::vfredusum_vs({{
                     Vd_vu[0] = reduce_loop([](const vu& src1, const vu& src2) {
                         return fadd<et>(ftype<et>(src1), ftype<et>(src2));
@@ -2877,12 +2877,12 @@ decode QUADRANT default Unknown::unknown() {
                         auto fd = fdiv<et>(ftype<et>(Vs2_vu[i]),
                                            ftype<et>(Vs1_vu[i]));
                         Vd_vu[i] = fd.v;
-                    }}, OPFVV, VectorFloatArithOp);
+                    }}, OPFVV, VectorCustomfdivOp);
                     0x24: vfmul_vv({{
                         auto fd = fmul<et>(ftype<et>(Vs2_vu[i]),
                                            ftype<et>(Vs1_vu[i]));
                         Vd_vu[i] = fd.v;
-                    }}, OPFVV, VectorFloatArithOp);
+                    }}, OPFVV, VectorCustomfmultOp);
                     0x28: vfmadd_vv({{
                         auto fd = fmadd<et>(ftype<et>(Vs3_vu[i]),
                                             ftype<et>(Vs1_vu[i]),

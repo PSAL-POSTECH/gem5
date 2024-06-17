@@ -136,6 +136,10 @@ static const OpClass VectorIntegerExtensionOp = enums::VectorIntegerExtension;
 static const OpClass VectorConfigOp = enums::VectorConfig;
 static const OpClass Num_OpClasses = enums::Num_OpClass;
 
+static const OpClass VectorCustomfaddOp = enums::VectorCustomfadd;
+static const OpClass VectorCustomfmultOp = enums::VectorCustomfmult;
+static const OpClass VectorCustomfdivOp = enums::VectorCustomfdiv;
+
 } // namespace gem5
 
 #endif // __CPU__OP_CLASS_HH__

@@ -119,6 +119,9 @@ class OpClass(Enum):
         "VectorMisc",
         "VectorIntegerExtension",
         "VectorConfig",
+        "VectorCustomfadd",
+        "VectorCustomfmult",
+        "VectorCustomfdiv",
     ]
 
 
