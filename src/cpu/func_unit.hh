@@ -113,6 +113,7 @@ class FuncUnit
     std::string name;
 
     void addCapability(OpClass cap, unsigned oplat, bool pipelined);
+    void rewriteCapability(OpClass cap, unsigned oplat, bool pipelined);
 
     bool provides(OpClass capability);
     std::bitset<Num_OpClasses> capabilities();

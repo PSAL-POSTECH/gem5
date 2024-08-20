@@ -186,6 +186,8 @@ FUPipeline::findTiming(const StaticInstPtr &inst)
         description.timings;
     unsigned int num_timings = timings.size();
 
+	std::cout << "num_timings : " << timings.size() << std::endl;
+
     for (unsigned int i = 0; i < num_timings; i++) {
         MinorFUTiming &timing = *timings[i];
 

@@ -414,7 +414,7 @@ VMvWholeMicroInst::generateDisassembly(Addr pc,
 VMaskMergeMicroInst::VMaskMergeMicroInst(ExtMachInst extMachInst,
     uint8_t _dstReg, uint8_t _numSrcs, uint32_t _vlen, size_t _elemSize)
     : VectorArithMicroInst("vmask_mv_micro", extMachInst,
-                            VectorIntegerArithOp, 0, 0),
+                            SimdAddOp, 0, 0),
       vlen(_vlen),
       elemSize(_elemSize)
 {
@@ -444,14 +444,14 @@ VMaskMergeMicroInst::execute(ExecContext* xc,
     uint32_t vlenb = pc_ptr->as<PCState>().vlenb();
     const uint32_t elems_per_vreg = vlenb / elemSize;
     size_t bit_cnt = elems_per_vreg;
+
+    // mask tails are always treated as agnostic: writting 1s
+    tmp_d0.set(0xff);
+
     vreg_t tmp_s;
-    xc->getRegOperand(this, 0, &tmp_s);
-    auto s = tmp_s.as<uint8_t>();
-    // cp the first result and tail
-    memcpy(Vd, s, vlenb);
-    for (uint8_t i = 1; i < this->_numSrcRegs; i++) {
+    for (uint8_t i = 0; i < this->_numSrcRegs; i++) {
         xc->getRegOperand(this, i, &tmp_s);
-        s = tmp_s.as<uint8_t>();
+        auto s = tmp_s.as<uint8_t>();
         if (elems_per_vreg < 8) {
             const uint32_t m = (1 << elems_per_vreg) - 1;
             const uint32_t mask = m << (i * elems_per_vreg % 8);
@@ -498,6 +498,432 @@ VxsatMicroInst::generateDisassembly(Addr pc,
 {
     std::stringstream ss;
     ss << mnemonic << ' ' << "VXSAT" << ", " << (*vxsat ? "0x1" : "0x0");
+    return ss.str();
+}
+
+VlFFTrimVlMicroOp::VlFFTrimVlMicroOp(ExtMachInst _machInst, uint32_t _microVl,
+    uint32_t _microIdx, uint32_t _vlen, std::vector<StaticInstPtr>& _microops)
+    : VectorMicroInst("vlff_trimvl_v_micro", _machInst, SimdConfigOp,
+                      _microVl, _microIdx, _vlen),
+      microops(_microops)
+{
+    setRegIdxArrays(
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::srcRegIdxArr),
+        nullptr
+    );
+
+    // Create data dependency with load micros
+    for (uint8_t i=0; i<microIdx; i++) {
+        setSrcRegIdx(_numSrcRegs++, vecRegClass[_machInst.vd + i]);
+    }
+
+    this->flags[IsControl] = true;
+    this->flags[IsIndirectControl] = true;
+    this->flags[IsInteger] = true;
+    this->flags[IsUncondControl] = true;
+}
+
+uint32_t
+VlFFTrimVlMicroOp::calcVl() const
+{
+    uint32_t vl = 0;
+    for (uint8_t i=0; i<microIdx; i++) {
+        VleMicroInst& micro = static_cast<VleMicroInst&>(*microops[i]);
+        vl += micro.faultIdx;
+
+        if (micro.trimVl)
+            break;
+    }
+    return vl;
+}
+
+Fault
+VlFFTrimVlMicroOp::execute(ExecContext *xc, trace::InstRecord *traceData) const
+{
+    auto tc = xc->tcBase();
+    MISA misa = xc->readMiscReg(MISCREG_ISA);
+    STATUS status = xc->readMiscReg(MISCREG_STATUS);
+    if (!misa.rvv || status.vs == VPUStatus::OFF) {
+        return std::make_shared<IllegalInstFault>(
+                "RVV is disabled or VPU is off", machInst);
+    }
+
+    PCState pc;
+    set(pc, xc->pcState());
+
+    uint32_t new_vl = calcVl();
+
+    tc->setMiscReg(MISCREG_VSTART, 0);
+
+    RegVal final_val = new_vl;
+    if (traceData) {
+        traceData->setData(miscRegClass, final_val);
+    }
+
+    pc.vl(new_vl);
+    xc->pcState(pc);
+
+    return NoFault;
+}
+
+std::unique_ptr<PCStateBase>
+VlFFTrimVlMicroOp::branchTarget(ThreadContext *tc) const
+{
+    PCStateBase *pc_ptr = tc->pcState().clone();
+
+    uint32_t new_vl = calcVl();
+
+    pc_ptr->as<PCState>().vl(new_vl);
+    return std::unique_ptr<PCStateBase>{pc_ptr};
+}
+
+std::string
+VlFFTrimVlMicroOp::generateDisassembly(Addr pc,
+    const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    ss << mnemonic << " vl";
+    return ss.str();
+}
+
+std::string VlSegMacroInst::generateDisassembly(Addr pc,
+        const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    ss << mnemonic << ' ' << registerName(destRegIdx(0)) << ", " <<
+        '(' << registerName(srcRegIdx(0)) << ')' <<
+        ", " << registerName(srcRegIdx(1));
+    if (!machInst.vm)
+        ss << ", v0.t";
+    return ss.str();
+}
+
+std::string VlSegMicroInst::generateDisassembly(Addr pc,
+        const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    ss << mnemonic << ' ' << registerName(destRegIdx(0)) << ", " <<
+        '(' << registerName(srcRegIdx(0)) << ')' <<
+        ", "<< registerName(srcRegIdx(1));
+    if (microIdx != 0 || machInst.vtype8.vma == 0 || machInst.vtype8.vta == 0)
+        ss << ", " << registerName(srcRegIdx(2));
+    if (!machInst.vm)
+        ss << ", v0.t";
+    return ss.str();
+}
+
+VlSegDeIntrlvMicroInst::VlSegDeIntrlvMicroInst(ExtMachInst extMachInst, uint32_t _micro_vl,
+                        uint32_t _dstReg, uint32_t _numSrcs,
+                        uint32_t _microIdx, uint32_t _numMicroops,
+                        uint32_t _field, uint32_t _vlen, uint32_t _sizeOfElement)
+    : VectorArithMicroInst("vlseg_deintrlv_micro", extMachInst,
+                            SimdAddOp, 0, 0),
+        vlen(_vlen)
+{
+    setRegIdxArrays(
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::srcRegIdxArr),
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::destRegIdxArr));
+
+    _numSrcRegs = 0;
+    _numDestRegs = 0;
+    numSrcs = _numSrcs;
+    numMicroops = _numMicroops;
+    field =_field;
+    sizeOfElement = _sizeOfElement;
+    microIdx = _microIdx;
+    micro_vl = _micro_vl;
+
+    setDestRegIdx(_numDestRegs++, vecRegClass[_dstReg]);
+    _numTypedDestRegs[VecRegClass]++;
+    for (uint32_t i=0; i < _numSrcs; i++) {
+        uint32_t index = VecMemInternalReg0 + i + (microIdx * _numSrcs);
+        setSrcRegIdx(_numSrcRegs++, vecRegClass[index]);
+    }
+}
+
+Fault
+VlSegDeIntrlvMicroInst::execute(ExecContext* xc, trace::InstRecord* traceData) const
+{
+    vreg_t& tmp_d0 = *(vreg_t *)xc->getWritableRegOperand(this, 0);
+    auto Vd = tmp_d0.as<uint8_t>();
+    const uint32_t elems_per_vreg =  micro_vl;
+    vreg_t tmp_s;
+    auto s = tmp_s.as<uint8_t>();
+    uint32_t elem = 0;
+    uint32_t index = field;
+    for (uint32_t i = 0; i < numSrcs; i++) {
+        xc->getRegOperand(this, i, &tmp_s);
+        s = tmp_s.as<uint8_t>();
+
+        // copy tail/inactive elements from vtmp src
+        if (i == field) {
+            tmp_d0 = tmp_s;
+        }
+
+        while (index < (i + 1) * elems_per_vreg)
+        {
+            memcpy(Vd + (elem * sizeOfElement),
+                    s + ((index  %  elems_per_vreg) * sizeOfElement),
+                    sizeOfElement);
+            index += numSrcs;
+            elem++;
+        }
+    }
+    if (traceData)
+        traceData->setData(vecRegClass, &tmp_d0);
+    return NoFault;
+}
+
+std::string
+VlSegDeIntrlvMicroInst::generateDisassembly(Addr pc, const loader::SymbolTable *symtab)
+    const
+{
+    std::stringstream ss;
+    ss << mnemonic << ' ' << registerName(destRegIdx(0));
+    for (uint8_t i = 0; i < this->_numSrcRegs; i++) {
+        ss << ", " << registerName(srcRegIdx(i));
+    }
+    ss << ", field: " << field;
+    return ss.str();
+}
+
+std::string VsSegMacroInst::generateDisassembly(Addr pc,
+        const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    ss << mnemonic << ' ' << registerName(destRegIdx(0)) << ", " <<
+        '(' << registerName(srcRegIdx(0)) << ')' <<
+        ", " << registerName(srcRegIdx(1));
+    if (!machInst.vm)
+        ss << ", v0.t";
+    return ss.str();
+}
+
+std::string VsSegMicroInst::generateDisassembly(Addr pc,
+        const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    ss << mnemonic << ' ' << registerName(destRegIdx(0)) << ", " <<
+        '(' << registerName(srcRegIdx(0)) << ')' <<
+        ", "<< registerName(srcRegIdx(1));
+    if (!machInst.vm)
+        ss << ", v0.t";
+    return ss.str();
+}
+
+VsSegIntrlvMicroInst::VsSegIntrlvMicroInst(ExtMachInst extMachInst, uint32_t _micro_vl,
+                        uint32_t _dstReg, uint32_t _numSrcs,
+                        uint32_t _microIdx, uint32_t _numMicroops,
+                        uint32_t _field, uint32_t _vlen, uint32_t _sizeOfElement)
+    : VectorArithMicroInst("vsseg_reintrlv_micro", extMachInst,
+                            SimdAddOp, 0, 0),
+        vlen(_vlen)
+{
+    setRegIdxArrays(
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::srcRegIdxArr),
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::destRegIdxArr));
+
+    _numSrcRegs = 0;
+    _numDestRegs = 0;
+    numSrcs = _numSrcs;
+    numMicroops = _numMicroops;
+    field =_field;
+    sizeOfElement = _sizeOfElement;
+    microIdx = _microIdx;
+    micro_vl = _micro_vl;
+
+    setDestRegIdx(_numDestRegs++, vecRegClass[VecMemInternalReg0 + field +
+        (_microIdx * numSrcs)]);
+
+    _numTypedDestRegs[VecRegClass]++;
+    for (uint8_t i=0; i<_numSrcs; i++) {
+        setSrcRegIdx(_numSrcRegs++, vecRegClass[_dstReg + (i * numMicroops) +
+            (microIdx)]);
+    }
+}
+
+Fault
+VsSegIntrlvMicroInst::execute(ExecContext* xc,
+    trace::InstRecord* traceData) const
+{
+    const uint32_t elems_per_vreg = micro_vl;
+    vreg_t& tmp_d0 = *(vreg_t *)xc->getWritableRegOperand(this, 0);
+    auto Vd = tmp_d0.as<uint8_t>();
+
+    vreg_t tmp_s;
+    auto s = tmp_s.as<uint8_t>();
+    xc->getRegOperand(this, 0, &tmp_s);
+    s = tmp_s.as<uint8_t>();
+
+    uint32_t indexVd = 0;
+    uint32_t srcReg = (field * elems_per_vreg) % numSrcs;
+    uint32_t indexs = (field * elems_per_vreg) / numSrcs;
+
+    while (indexVd < elems_per_vreg) {
+        xc->getRegOperand(this, srcReg, &tmp_s);
+        s = tmp_s.as<uint8_t>();
+
+        memcpy(Vd + (indexVd * sizeOfElement),
+                    s + (indexs * sizeOfElement),
+                    sizeOfElement);
+
+        indexVd++;
+        srcReg++;
+        if (srcReg >= numSrcs) {
+            srcReg = 0;
+            indexs++;
+        }
+    }
+
+    if (traceData)
+        traceData->setData(vecRegClass, &tmp_d0);
+    return NoFault;
+}
+
+std::string
+VsSegIntrlvMicroInst::generateDisassembly(Addr pc,
+    const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    ss << mnemonic << ' ' << registerName(destRegIdx(0));
+    for (uint8_t i = 0; i < this->_numSrcRegs; i++) {
+        ss << ", " << registerName(srcRegIdx(i));
+    }
+    ss << ", field: " << field;
+    return ss.str();
+}
+
+VCpyVsMicroInst::VCpyVsMicroInst(ExtMachInst _machInst, uint32_t _microIdx,
+                                 uint8_t _vsRegIdx)
+    : VectorArithMicroInst("vcpyvs_v_micro", _machInst, SimdMiscOp, 0,
+                           _microIdx)
+{
+    setRegIdxArrays(
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::srcRegIdxArr),
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::destRegIdxArr));
+
+    _numSrcRegs = 0;
+    _numDestRegs = 0;
+    setDestRegIdx(_numDestRegs++, vecRegClass[VecMemInternalReg0 + _microIdx]);
+    _numTypedDestRegs[VecRegClass]++;
+    setSrcRegIdx(_numSrcRegs++, vecRegClass[_vsRegIdx + _microIdx]);
+}
+
+Fault
+VCpyVsMicroInst::execute(ExecContext* xc, trace::InstRecord* traceData) const
+{
+    MISA misa = xc->readMiscReg(MISCREG_ISA);
+    STATUS status = xc->readMiscReg(MISCREG_STATUS);
+
+    if (!misa.rvv || status.vs == VPUStatus::OFF) {
+        return std::make_shared<IllegalInstFault>(
+                "RVV is disabled or VPU is off", machInst);
+    }
+
+    status.vs = VPUStatus::DIRTY;
+    xc->setMiscReg(MISCREG_STATUS, status);
+
+    // copy vector source reg to vtmp
+    vreg_t& vtmp = *(vreg_t *)xc->getWritableRegOperand(this, 0);
+    vreg_t vs;
+    xc->getRegOperand(this, 0, &vs);
+    vtmp = vs;
+
+    if (traceData) {
+        traceData->setData(vecRegClass, &vtmp);
+    }
+
+    return NoFault;
+}
+
+std::string
+VCpyVsMicroInst::generateDisassembly(Addr pc,
+        const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    ss << mnemonic << ' ' << registerName(destRegIdx(0)) << ", "
+       << registerName(srcRegIdx(0));
+    return ss.str();
+}
+
+VPinVdMicroInst::VPinVdMicroInst(ExtMachInst _machInst, uint32_t _microIdx,
+                                 uint32_t _numVdPins, bool _hasVdOffset)
+    : VectorArithMicroInst("vpinvd_v_micro", _machInst, SimdMiscOp, 0,
+                           _microIdx)
+    , hasVdOffset(_hasVdOffset)
+{
+    setRegIdxArrays(
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::srcRegIdxArr),
+        reinterpret_cast<RegIdArrayPtr>(
+            &std::remove_pointer_t<decltype(this)>::destRegIdxArr));
+
+    _numSrcRegs = 0;
+    _numDestRegs = 0;
+    setDestRegIdx(_numDestRegs++, vecRegClass[_machInst.vd + _microIdx]);
+    _numTypedDestRegs[VecRegClass]++;
+    if (!_machInst.vtype8.vta || (!_machInst.vm && !_machInst.vtype8.vma)
+                              || hasVdOffset) {
+        setSrcRegIdx(_numSrcRegs++, vecRegClass[_machInst.vd + _microIdx]);
+    }
+    RegId Vd = destRegIdx(0);
+    Vd.setNumPinnedWrites(_numVdPins);
+    setDestRegIdx(0, Vd);
+}
+
+Fault
+VPinVdMicroInst::execute(ExecContext* xc, trace::InstRecord* traceData) const
+{
+    MISA misa = xc->readMiscReg(MISCREG_ISA);
+    STATUS status = xc->readMiscReg(MISCREG_STATUS);
+
+    if (!misa.rvv || status.vs == VPUStatus::OFF) {
+        return std::make_shared<IllegalInstFault>(
+                "RVV is disabled or VPU is off", machInst);
+    }
+
+    status.vs = VPUStatus::DIRTY;
+    xc->setMiscReg(MISCREG_STATUS, status);
+
+    // tail/mask policy: both undisturbed if one is, 1s if none
+    vreg_t& vd = *(vreg_t *)xc->getWritableRegOperand(this, 0);
+    if (!machInst.vtype8.vta || (!machInst.vm && !machInst.vtype8.vma)
+                             || hasVdOffset) {
+        vreg_t old_vd;
+        xc->getRegOperand(this, 0, &old_vd);
+        vd = old_vd;
+    } else {
+        vd.set(0xff);
+    }
+
+    if (traceData) {
+        traceData->setData(vecRegClass, &vd);
+    }
+
+    return NoFault;
+}
+
+std::string
+VPinVdMicroInst::generateDisassembly(Addr pc,
+        const loader::SymbolTable *symtab) const
+{
+    std::stringstream ss;
+    ss << mnemonic << ' ' << registerName(destRegIdx(0)) << ", ";
+
+    if (!machInst.vtype8.vta || (!machInst.vm && !machInst.vtype8.vma)
+                             || hasVdOffset) {
+        ss << registerName(srcRegIdx(0));
+    } else {
+        ss << "~0";
+    }
+
     return ss.str();
 }
 

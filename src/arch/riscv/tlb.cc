@@ -343,45 +343,36 @@ TLB::translate(const RequestPtr &req, ThreadContext *tc,
         PrivilegeMode pmode = getMemPriv(tc, mode);
         MISA misa = tc->readMiscRegNoEffect(MISCREG_ISA);
         SATP satp = tc->readMiscReg(MISCREG_SATP);
+        Fault fault = NoFault;
+
+        fault = pma->checkVAddrAlignment(req, mode);
+
         if (!misa.rvs || pmode == PrivilegeMode::PRV_M ||
             satp.mode == AddrXlateMode::BARE) {
             req->setFlags(Request::PHYSICAL);
         }
 
-        Fault fault;
-        if (req->getFlags() & Request::PHYSICAL) {
-            /**
-             * we simply set the virtual address to physical address
-             */
-            req->setPaddr(req->getVaddr());
-            fault = NoFault;
-        } else {
-            fault = doTranslate(req, tc, translation, mode, delayed);
-        }
-
-        // according to the RISC-V tests, negative physical addresses trigger
-        // an illegal address exception.
-        // TODO where is that written in the manual?
-        if (!delayed && fault == NoFault && bits(req->getPaddr(), 63)) {
-            ExceptionCode code;
-            if (mode == BaseMMU::Read)
-                code = ExceptionCode::LOAD_ACCESS;
-            else if (mode == BaseMMU::Write)
-                code = ExceptionCode::STORE_ACCESS;
-            else
-                code = ExceptionCode::INST_ACCESS;
-            fault = std::make_shared<AddressFault>(req->getVaddr(), code);
+        if (fault == NoFault) {
+            if (req->getFlags() & Request::PHYSICAL) {
+                /**
+                 * we simply set the virtual address to physical address
+                 */
+                req->setPaddr(req->getVaddr());
+            } else {
+                fault = doTranslate(req, tc, translation, mode, delayed);
+            }
         }
 
         if (!delayed && fault == NoFault) {
-            pma->check(req);
-
             // do pmp check if any checking condition is met.
             // timingFault will be NoFault if pmp checks are
             // passed, otherwise an address fault will be returned.
             fault = pmp->pmpCheck(req, mode, pmode, tc);
         }
 
+        if (!delayed && fault == NoFault) {
+            fault = pma->check(req, mode);
+        }
         return fault;
     } else {
         // In the O3 CPU model, sometimes a memory access will be speculatively

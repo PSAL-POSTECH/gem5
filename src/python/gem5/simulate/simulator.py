@@ -52,6 +52,7 @@ from .exit_event_generators import (
     exit_generator,
     reset_stats_generator,
     save_checkpoint_generator,
+    skip_generator,
     switch_generator,
     warn_default_decorator,
 )
@@ -299,7 +300,7 @@ class Simulator:
             ExitEvent.MAX_TICK: exit_generator(),
             ExitEvent.SCHEDULED_TICK: exit_generator(),
             ExitEvent.SIMPOINT_BEGIN: warn_default_decorator(
-                reset_stats_generator,
+                skip_generator,
                 "simpoint begin",
                 "resetting the stats and continuing",
             )(),
@@ -469,6 +470,12 @@ class Simulator:
         Returns the last exit event cause.
         """
         return self._last_exit_event.getCause()
+
+    def get_last_exit_event_code(self) -> int:
+        """
+        Returns the last exit event status code
+        """
+        return self._last_exit_event.getCode()
 
     def get_current_tick(self) -> int:
         """

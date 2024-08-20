@@ -298,12 +298,16 @@ class SelfStallingPipeline : public MinorBuffer<ElemType, ReportTraits>
     /** Wire at the output end of the pipeline (for convenience) */
     typename TimeBuffer<ElemType>::wire popWire;
 
+	std::vector<unsigned> elementDepths;
+
   public:
     /** If true, advance will not advance the pipeline */
     bool stalled;
 
     /** The number of slots with non-bubbles in them */
     unsigned int occupancy;
+
+	unsigned int maxDepth;
 
   public:
     SelfStallingPipeline(const std::string &name,
@@ -314,7 +318,8 @@ class SelfStallingPipeline : public MinorBuffer<ElemType, ReportTraits>
         pushWire(this->getWire(0)),
         popWire(this->getWire(-depth)),
         stalled(false),
-        occupancy(0)
+        occupancy(0),
+		maxDepth(depth) // GW
     {
         assert(depth > 0);
 
@@ -322,6 +327,8 @@ class SelfStallingPipeline : public MinorBuffer<ElemType, ReportTraits>
          *  constructor for the element type isn't good enough */
         for (unsigned i = 0; i <= depth; i++)
             (*this)[-i] = BubbleTraits::bubble();
+
+		elementDepths.resize(depth + 1, 0);
     }
 
   public:
@@ -337,6 +344,34 @@ class SelfStallingPipeline : public MinorBuffer<ElemType, ReportTraits>
             occupancy++;
     }
 
+	void pushAtDepth(ElemType &elem, unsigned depth)
+	{
+		assert(depth <= maxDepth);
+//		assert(!alreadyPushedAtDepth(depth));
+
+		*this->getWire(-depth) = elem;
+		elementDepths[depth] = depth;
+
+		if (!BubbleTraits::isBubble(elem))
+			occupancy++;
+	}
+
+	void insert(ElemType &elem, unsigned depth)
+	{
+		unsigned targetDepth = maxDepth;
+		for (unsigned i = 1; i <= maxDepth; i++)
+		{
+			if (elementDepths[i] == 0) {
+				targetDepth = i;
+				break;
+			} else if (elementDepths[i] < depth) {
+				targetDepth = i;
+			}
+		}
+
+		pushAtDepth(elem, targetDepth);
+	}
+
     /** Peek at the end element of the pipe */
     ElemType &front() { return *popWire; }
 
@@ -344,6 +379,8 @@ class SelfStallingPipeline : public MinorBuffer<ElemType, ReportTraits>
 
     /** Have we already pushed onto this pipe without advancing */
     bool alreadyPushed() { return !BubbleTraits::isBubble(*pushWire); }
+
+	bool alreadyPushedAtDepth(unsigned depth) { return !BubbleTraits::isBubble((*this)[-depth]); }
 
     /** There's data (not a bubble) at the end of the pipe */
     bool isPopable() { return !BubbleTraits::isBubble(front()); }
@@ -371,6 +408,48 @@ class SelfStallingPipeline : public MinorBuffer<ElemType, ReportTraits>
             *pushWire = bubble;
         }
     }
+
+//    unsigned getDepth() const { return pipelineDepth; } // GW
+//
+//    void applyNewDepth(unsigned new_depth) // GW
+//    {
+//        std::vector<ElemType> temp_storage;
+//
+//		for (unsigned i = 0; i < this->getDepth(); ++i)
+//		{
+//	    	ElemType elem = (*this)[-i];
+//	    	if (!BubbleTraits::isBubble(elem))
+//	        	temp_storage.push_back(elem);
+//		}
+//
+//		SelfStallingPipeline<ElemType, ReportTraits, BubbleTraits> new_pipeline(
+//			this->name(), this->dataName, new_depth);
+//
+//		for (size_t i = 0; i < temp_storage.size(); ++i)
+//		{
+//			new_pipeline.push(temp_storage[i]);
+//			new_pipeline.advance();
+//		}
+//
+//		this->stalled = new_pipeline.stalled;
+//		this->occupancy = new_pipeline.occupancy;
+//
+//		unsigned min_depth = std::min(this->getDepth(), new_depth);
+//		for (unsigned i = 0; i <= min_depth; i++)
+//		{
+//			(*this)[-i] = new_pipeline[-i];
+//		}
+//
+//		for (unsigned i = min_depth + 1; i <= new_depth; i++)
+//		{
+//			(*this)[-i] = BubbleTraits::bubble();
+//		}
+//
+//		this->pipelineDepth = new_depth;
+//		this->pushWire = this->getWire(0);
+//		this->popWire = this->getWire(-new_depth);
+//    }
+
 };
 
 /** Base class for space reservation requestable objects */

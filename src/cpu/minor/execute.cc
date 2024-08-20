@@ -52,10 +52,33 @@
 #include "debug/MinorInterrupt.hh"
 #include "debug/MinorMem.hh"
 #include "debug/MinorTrace.hh"
+#include "debug/SystolicArray.hh"
 #include "debug/PCEvent.hh"
+
+#include <unordered_map>
+#include <regex>
+
+int computeCycle(const gem5::minor::MinorDynInst& inst) {
+	std::string str;
+	if (inst.staticInst)
+		str = inst.staticInst->disassemble(inst.pc->instAddr());
+	else
+		str = "compute00";
+
+    std::regex pattern(R"(compute(\d{2})_vi)");
+    std::smatch matches;
+
+    if (std::regex_search(str, matches, pattern)) {
+        return std::stoi(matches[1].str()); // power of 2
+    } else {
+        throw std::runtime_error("No match found");
+    }
+}
 
 namespace gem5
 {
+
+using enums::OpClass;
 
 namespace minor
 {
@@ -133,18 +156,45 @@ Execute::Execute(const std::string &name_,
     /* Make FUPipelines for each MinorFU */
     for (unsigned int i = 0; i < numFuncUnits; i++) {
         std::ostringstream fu_name;
-        MinorFU *fu_description = fuDescriptions.funcUnits[i];
 
-        /* Note the total number of instruction slots (for sizing
-         *  the inFlightInst queue) and the maximum latency of any FU
-         *  (for sizing the activity recorder) */
-        total_slots += fu_description->opLat;
+		if (fuDescriptions.funcUnits[i]->opClasses->provides(gem5::enums::CustomMatMulvpop)) {
+			MinorFU *temp_fu = fuDescriptions.funcUnits[i];
 
-        fu_name << name_ << ".fu." << i;
+			MinorFUParams *DSParams = new MinorFUParams();
+			DSParams->opClasses = temp_fu->opClasses;
+			DSParams->opLat = temp_fu->opLat;
+			DSParams->issueLat = temp_fu->issueLat;
+			DSParams->cantForwardFromFUIndices = temp_fu->cantForwardFromFUIndices;
+			DSParams->timings = temp_fu->timings;
 
-        FUPipeline *fu = new FUPipeline(fu_name.str(), *fu_description, cpu);
+		    std::cout << "Creating SystolicArrayFU with DSParams" << std::endl;
+		    std::cout << "opLat: " << DSParams->opLat << std::endl;
+		    std::cout << "issueLat: " << DSParams->issueLat << std::endl;
+		    std::cout << "Number of timings: " << DSParams->timings.size() << std::endl;
 
-        funcUnits.push_back(fu);
+			SystolicArrayFU *fu_description = new SystolicArrayFU(*DSParams);
+
+			total_slots += fu_description->opLat;
+
+			fu_name << name_ << ".fu." << i;
+
+			FUPipeline *fu = new FUPipeline(fu_name.str(), *fu_description, cpu);
+
+			funcUnits.push_back(fu);
+		} else {
+	        MinorFU *fu_description = fuDescriptions.funcUnits[i];
+
+	        /* Note the total number of instruction slots (for sizing
+	         *  the inFlightInst queue) and the maximum latency of any FU
+	         *  (for sizing the activity recorder) */
+	        total_slots += fu_description->opLat;
+
+	        fu_name << name_ << ".fu." << i;
+
+	        FUPipeline *fu = new FUPipeline(fu_name.str(), *fu_description, cpu);
+
+			funcUnits.push_back(fu);
+		}
     }
 
     /** Check that there is a functional unit for all operation classes */
@@ -604,6 +654,12 @@ Execute::issue(ThreadID thread_id)
             do {
                 FUPipeline *fu = funcUnits[fu_index];
 
+				bool is_systolicArray = fu->provides(gem5::enums::CustomMatMulvpop);
+
+				if (is_systolicArray) {
+					DPRINTF(SystolicArray, "systolicarray: FU %d is a Systolic Array\n", fu_index); // GW DEBUG
+				}
+
                 DPRINTF(MinorExecute, "Trying to issue inst: %s to FU: %d\n",
                     *inst, fu_index);
 
@@ -743,6 +799,39 @@ Execute::issue(ThreadID thread_id)
                                 *inst);
                             thread.inFUMemInsts->push(fu_inst);
                         }
+
+						if (is_systolicArray) {
+							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
+							DPRINTF(SystolicArray, "systolicarray: processing...\n");
+							systolicFU->process();
+						}
+
+						bool is_vpop = (inst->staticInst->opClass() == gem5::enums::CustomMatMulvpop);
+						bool is_ivpush = (inst->staticInst->opClass() == gem5::enums::CustomMatMuliVpush);
+						bool is_wvpush = (inst->staticInst->opClass() == gem5::enums::CustomMatMulwVpush);
+						bool is_compute = (inst->staticInst->opClass() == gem5::enums::CustomMatMul);
+
+						if (is_ivpush) {
+							DPRINTF(SystolicArray, "systolicarray: Handle input vpush inst.\n");
+							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
+							systolicFU->pushInput(8); // temporarly fixed as vlmul == 1
+						} else if (is_wvpush) {
+							DPRINTF(SystolicArray, "systolicarray: Handle weight vpush inst.\n");
+							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
+							systolicFU->pushWeight(8); // temporarly fixed as vlmul == 1
+						} else if (is_compute) {
+							DPRINTF(SystolicArray, "systolicarray: Handle compute%d inst.\n", computeCycle(*inst));
+							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
+							systolicFU->compute(computeCycle(*inst)); // temporarly
+						} else if (is_vpop) {
+							DPRINTF(SystolicArray, "systolicarray: Handle vpop inst.\n");
+							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
+							if(systolicFU->is_popable(8)) systolicFU->vpop(8); // temporarly fixed as vlmul == 1
+							else {
+								fu_index++;
+								continue;
+							}
+						}
 
                         /* Issue to FU */
                         fu->push(fu_inst);

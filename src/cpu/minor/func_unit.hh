@@ -61,6 +61,8 @@
 #include "sim/clocked_object.hh"
 #include "sim/sim_object.hh"
 
+#include "debug/SystolicArray.hh"
+
 namespace gem5
 {
 
@@ -183,7 +185,117 @@ class MinorFU : public SimObject
         cantForwardFromFUIndices(params.cantForwardFromFUIndices),
         timings(params.timings)
     { }
+
+	virtual ~MinorFU() = default;
+
+    void setCycle(Cycles lat) {
+		opLat = lat;
+    }
 };
+
+class SystolicArrayFU : public MinorFU
+{
+  public:
+	bool is_oqueue_empty;
+	bool is_processing;
+  private:
+	int serializerSize = 128;
+	int saSize = 255; // 128+127(SA cycle)
+
+	std::queue<int> wQueue;
+    std::queue<int> iQueue;
+	std::queue<int> SAQueue;
+	std::queue<int> oQueue;
+
+	int process_cycle;
+
+	int index;
+  public:
+	SystolicArrayFU(const MinorFUParams &params) :
+		MinorFU(params),
+		is_oqueue_empty(true),
+		is_processing(false),
+		process_cycle(0),
+		index(0)
+    { }
+
+	void pushWeight(int size) {
+		for (int i = 0; i < size; i++) {
+			wQueue.push(1);
+		}
+	}
+
+	void pushInput(int size) {
+		assert(iQueue.size() + size <= serializerSize);
+
+		DPRINTF(SystolicArray, "systolicarray.pushInput: current iQueueSize: %d\n", iQueue.size());
+		DPRINTF(SystolicArray, "systolicarray.pushInput: input size: %d\n", size);
+
+		for (int i = 0; i < size; i++) {
+			iQueue.push(index++);
+		}
+	}
+
+	void compute(int cycle) {
+//		assert(!iQueue.empty());
+
+		process_cycle += cycle;
+		is_processing = (process_cycle > 0);
+		DPRINTF(SystolicArray, "systolicarray.compute: remaining processing cycle: %d\n", process_cycle);
+	}
+
+	void process() {
+		if (process_cycle <= 0) return;
+
+		// Check if SAQueue and oQueue is full together.
+		bool sa_full = (SAQueue.size() == saSize);
+		bool oQ_full = (oQueue.size() == serializerSize);
+		if (sa_full && oQ_full) {
+			// TODO: handle this condition later. SA should be stalled.
+			DPRINTF(SystolicArray, "systolicarray.process: SA is full, output Queue is full\n");
+			return;
+		}
+
+		if (iQueue.empty()) {
+			SAQueue.push(-1);
+		} else {
+			SAQueue.push(iQueue.front());
+			iQueue.pop();
+		}
+
+		if (SAQueue.size() > saSize) {
+			if (!oQ_full) {
+				DPRINTF(SystolicArray, "systolicarray.process: %d is pushed into DeSerializer\n", SAQueue.front());
+				oQueue.push(SAQueue.front());
+				SAQueue.pop();
+			} else {
+				assert(0);
+			}
+		}
+
+		process_cycle--;
+		is_oqueue_empty = oQueue.empty();
+		is_processing = (process_cycle > 0);
+		DPRINTF(SystolicArray, "systolicarray.process: remaining processing cycle: %d\n", process_cycle);
+	}
+
+	void vpop(int size) {
+		assert(oQueue.size() >= size);
+
+		DPRINTF(SystolicArray, "systolicarray.vpop: DeSerializer Size before vpop(%d): %d\n", size, oQueue.size());
+		for (int i = 0; i < size; i++) {
+			oQueue.pop();
+		}
+		is_oqueue_empty = oQueue.empty();
+
+		DPRINTF(SystolicArray, "systolicarray.vpop: DeSerializer Size after vpop: %d\n", oQueue.size());
+	}
+
+	bool is_popable(int size) {
+		return (oQueue.size() >= size);
+	}
+};
+
 
 /** A collection of MinorFUs */
 class MinorFUPool : public SimObject

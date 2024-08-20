@@ -72,6 +72,16 @@ FuncUnit::addCapability(OpClass cap, unsigned oplat, bool pipeline)
     pipelined[cap] = pipeline;
 }
 
+void
+FuncUnit::rewriteCapability(OpClass cap, unsigned oplat, bool pipeline)
+{
+    if (oplat == 0)
+	panic("FuncUnit:  you don't really want a zero-cycle latency do you?");
+
+    opLatencies[cap] = oplat;
+    pipelined[cap] = pipeline;
+}
+
 bool
 FuncUnit::provides(OpClass capability)
 {

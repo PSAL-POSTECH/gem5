@@ -129,6 +129,13 @@ class StaticInst : public RefCounted, public StaticInstFlags
     {
         return _numTypedDestRegs[type];
     }
+
+    bool is_opLat_special() { // GW
+	return 	(gem5::enums::CustomMatMul < _opClass)
+//		|| (_opClass == gem5::enums::SimdFloatMult)
+		|| (_opClass == gem5::enums::SimdFloatAdd);
+//		|| (_opClass == gem5::enums::SimdFloatDiv);
+  }
     //@}
 
     /// @name Flag accessors.
