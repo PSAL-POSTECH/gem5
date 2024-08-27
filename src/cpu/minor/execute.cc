@@ -163,12 +163,15 @@ Execute::Execute(const std::string &name_,
 			MinorFUParams *DSParams = new MinorFUParams();
 			DSParams->opClasses = temp_fu->opClasses;
 			DSParams->opLat = temp_fu->opLat;
+			DSParams->systolicArrayWidth = temp_fu->systolicArrayWidth;
+			DSParams->systolicArrayHeight = temp_fu->systolicArrayHeight;
 			DSParams->issueLat = temp_fu->issueLat;
 			DSParams->cantForwardFromFUIndices = temp_fu->cantForwardFromFUIndices;
 			DSParams->timings = temp_fu->timings;
 
 		    std::cout << "Creating SystolicArrayFU with DSParams" << std::endl;
 		    std::cout << "opLat: " << DSParams->opLat << std::endl;
+		    std::cout << "SystolicArray: " << DSParams->systolicArrayWidth << "x" << DSParams->systolicArrayHeight << std::endl;
 		    std::cout << "issueLat: " << DSParams->issueLat << std::endl;
 		    std::cout << "Number of timings: " << DSParams->timings.size() << std::endl;
 
@@ -828,6 +831,7 @@ Execute::issue(ThreadID thread_id)
 							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
 							if(systolicFU->is_popable(8)) systolicFU->vpop(8); // temporarly fixed as vlmul == 1
 							else {
+								DPRINTF(SystolicArray, "systolicarray: FU popable %d\n", systolicFU->ready_size());
 								fu_index++;
 								continue;
 							}

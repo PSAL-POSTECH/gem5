@@ -176,6 +176,9 @@ class MinorFU : public SimObject
     /** Extra timing info to give timings to individual ops */
     std::vector<MinorFUTiming *> timings;
 
+	int systolicArrayWidth;
+	int systolicArrayHeight;
+
   public:
     MinorFU(const MinorFUParams &params) :
         SimObject(params),
@@ -183,7 +186,9 @@ class MinorFU : public SimObject
         opLat(params.opLat),
         issueLat(params.issueLat),
         cantForwardFromFUIndices(params.cantForwardFromFUIndices),
-        timings(params.timings)
+        timings(params.timings),
+		systolicArrayWidth(params.systolicArrayWidth),
+		systolicArrayHeight(params.systolicArrayHeight)
     { }
 
 	virtual ~MinorFU() = default;
@@ -200,7 +205,7 @@ class SystolicArrayFU : public MinorFU
 	bool is_processing;
   private:
 	int serializerSize = 128;
-	int saSize = 255; // 128+127(SA cycle)
+	int saSize;
 
 	std::queue<int> wQueue;
     std::queue<int> iQueue;
@@ -215,6 +220,7 @@ class SystolicArrayFU : public MinorFU
 		MinorFU(params),
 		is_oqueue_empty(true),
 		is_processing(false),
+		saSize(params.systolicArrayWidth + params.systolicArrayHeight - 1),
 		process_cycle(0),
 		index(0)
     { }
@@ -255,6 +261,7 @@ class SystolicArrayFU : public MinorFU
 			DPRINTF(SystolicArray, "systolicarray.process: SA is full, output Queue is full\n");
 			return;
 		}
+		DPRINTF(SystolicArray, "systolicarray.process: SA %d/%d\n", SAQueue.size(), saSize);
 
 		if (iQueue.empty()) {
 			SAQueue.push(-1);
@@ -293,6 +300,10 @@ class SystolicArrayFU : public MinorFU
 
 	bool is_popable(int size) {
 		return (oQueue.size() >= size);
+	}
+
+	int ready_size() {
+		return oQueue.size();
 	}
 };
 

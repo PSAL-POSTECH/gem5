@@ -309,26 +309,33 @@ class SelfStallingPipeline : public MinorBuffer<ElemType, ReportTraits>
 
 	unsigned int maxDepth;
 
+	bool valueDependency;
+
   public:
     SelfStallingPipeline(const std::string &name,
         const std::string &data_name,
         unsigned depth) :
         MinorBuffer<ElemType, ReportTraits>
-            (name, data_name, depth, 0, -1, -depth),
+            (name, data_name, (depth>0) ? depth : 1, 0, -1, (depth>0) ? -depth : -1),
         pushWire(this->getWire(0)),
-        popWire(this->getWire(-depth)),
+        popWire(this->getWire((depth>0) ? -depth : -1)),
         stalled(false),
         occupancy(0),
-		maxDepth(depth) // GW
+		valueDependency(depth == 0)
     {
-        assert(depth > 0);
+//        assert(depth > 0);
+		if (depth > 0) {
+	        /* Write explicit bubbles to get around the case where the default
+	         *  constructor for the element type isn't good enough */
+	        for (unsigned i = 0; i <= depth; i++)
+	            (*this)[-i] = BubbleTraits::bubble();
 
-        /* Write explicit bubbles to get around the case where the default
-         *  constructor for the element type isn't good enough */
-        for (unsigned i = 0; i <= depth; i++)
-            (*this)[-i] = BubbleTraits::bubble();
+			elementDepths.resize(depth + 1, 0);
+		} else {
+	        (*this)[-0] = BubbleTraits::bubble();
 
-		elementDepths.resize(depth + 1, 0);
+			elementDepths.resize(2, 0);
+		}
     }
 
   public:

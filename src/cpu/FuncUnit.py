@@ -116,7 +116,6 @@ class OpClass(Enum):
         "SimdExt",
         "SimdFloatExt",
         "SimdConfig",
-
         "CustomMatMul",
         "CustomMatMuliVpush",
         "CustomMatMulwVpush",
