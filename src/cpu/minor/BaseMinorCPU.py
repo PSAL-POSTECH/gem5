@@ -131,6 +131,7 @@ class MinorFU(SimObject):
         "type of operations allowed on this functional unit",
     )
     opLat = Param.Cycles(1, "latency in cycles")
+    unitType = Param.String("", "Base, SystolicArray, SparseAccelerator")
     systolicArrayWidth = Param.Int(128, "systolic array width")
     systolicArrayHeight = Param.Int(128, "systolic array height")
     issueLat = Param.Cycles(

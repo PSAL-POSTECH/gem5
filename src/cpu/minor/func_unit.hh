@@ -176,6 +176,7 @@ class MinorFU : public SimObject
     /** Extra timing info to give timings to individual ops */
     std::vector<MinorFUTiming *> timings;
 
+	std::string unitType;
 	int systolicArrayWidth;
 	int systolicArrayHeight;
 
@@ -187,6 +188,7 @@ class MinorFU : public SimObject
         issueLat(params.issueLat),
         cantForwardFromFUIndices(params.cantForwardFromFUIndices),
         timings(params.timings),
+		unitType(params.unitType),
 		systolicArrayWidth(params.systolicArrayWidth),
 		systolicArrayHeight(params.systolicArrayHeight)
     { }
@@ -208,7 +210,7 @@ class SystolicArrayFU : public MinorFU
 	int saSize;
 
 	std::queue<int> wQueue;
-    std::queue<int> iQueue;
+	std::queue<int> iQueue;
 	std::queue<int> SAQueue;
 	std::queue<int> oQueue;
 
@@ -307,6 +309,13 @@ class SystolicArrayFU : public MinorFU
 	}
 };
 
+class SparseAccelFU : public MinorFU
+{
+  public:
+	SparseAccelFU(const MinorFUParams &params) :
+		MinorFU(params)
+	{ }		
+};
 
 /** A collection of MinorFUs */
 class MinorFUPool : public SimObject

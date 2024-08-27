@@ -157,7 +157,7 @@ Execute::Execute(const std::string &name_,
     for (unsigned int i = 0; i < numFuncUnits; i++) {
         std::ostringstream fu_name;
 
-		if (fuDescriptions.funcUnits[i]->opClasses->provides(gem5::enums::CustomMatMulvpop)) {
+		if (fuDescriptions.funcUnits[i]->unitType == "SystolicArray") {
 			MinorFU *temp_fu = fuDescriptions.funcUnits[i];
 
 			MinorFUParams *DSParams = new MinorFUParams();
@@ -176,6 +176,30 @@ Execute::Execute(const std::string &name_,
 		    std::cout << "Number of timings: " << DSParams->timings.size() << std::endl;
 
 			SystolicArrayFU *fu_description = new SystolicArrayFU(*DSParams);
+
+			total_slots += fu_description->opLat;
+
+			fu_name << name_ << ".fu." << i;
+
+			FUPipeline *fu = new FUPipeline(fu_name.str(), *fu_description, cpu);
+
+			funcUnits.push_back(fu);
+		} else if (fuDescriptions.funcUnits[i]->unitType == "SparseAccelerator") {
+			MinorFU *temp_fu = fuDescriptions.funcUnits[i];
+
+			MinorFUParams *DSParams = new MinorFUParams();
+			DSParams->opClasses = temp_fu->opClasses;
+			DSParams->opLat = temp_fu->opLat;
+			DSParams->issueLat = temp_fu->issueLat;
+			DSParams->cantForwardFromFUIndices = temp_fu->cantForwardFromFUIndices;
+			DSParams->timings = temp_fu->timings;
+
+		    std::cout << "Creating SparseAccelFU with DSParams" << std::endl;
+		    std::cout << "opLat: " << DSParams->opLat << std::endl;
+		    std::cout << "issueLat: " << DSParams->issueLat << std::endl;
+		    std::cout << "Number of timings: " << DSParams->timings.size() << std::endl;
+
+			SparseAccelFU *fu_description = new SparseAccelFU(*DSParams);
 
 			total_slots += fu_description->opLat;
 
