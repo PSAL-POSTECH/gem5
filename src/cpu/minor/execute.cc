@@ -69,7 +69,7 @@ int computeCycle(const gem5::minor::MinorDynInst& inst) {
     std::smatch matches;
 
     if (std::regex_search(str, matches, pattern)) {
-        return std::stoi(matches[1].str()); // power of 2
+        return (1 << std::stoi(matches[1].str())); // power of 2
     } else {
         throw std::runtime_error("No match found");
     }
@@ -168,6 +168,7 @@ Execute::Execute(const std::string &name_,
 			DSParams->issueLat = temp_fu->issueLat;
 			DSParams->cantForwardFromFUIndices = temp_fu->cantForwardFromFUIndices;
 			DSParams->timings = temp_fu->timings;
+			DSParams->unitType = temp_fu->unitType;
 
 		    std::cout << "Creating SystolicArrayFU with DSParams" << std::endl;
 		    std::cout << "opLat: " << DSParams->opLat << std::endl;
@@ -193,6 +194,7 @@ Execute::Execute(const std::string &name_,
 			DSParams->issueLat = temp_fu->issueLat;
 			DSParams->cantForwardFromFUIndices = temp_fu->cantForwardFromFUIndices;
 			DSParams->timings = temp_fu->timings;
+			DSParams->unitType = temp_fu->unitType;
 
 		    std::cout << "Creating SparseAccelFU with DSParams" << std::endl;
 		    std::cout << "opLat: " << DSParams->opLat << std::endl;
@@ -681,10 +683,14 @@ Execute::issue(ThreadID thread_id)
             do {
                 FUPipeline *fu = funcUnits[fu_index];
 
-				bool is_systolicArray = fu->provides(gem5::enums::CustomMatMulvpop);
+				bool is_systolicArray = (fu->description.unitType == "SystolicArray");
+				bool is_sparseAccelerator = (fu->description.unitType == "SparseAccelerator");
 
 				if (is_systolicArray) {
 					DPRINTF(SystolicArray, "systolicarray: FU %d is a Systolic Array\n", fu_index); // GW DEBUG
+				}
+				if (is_sparseAccelerator) {
+					DPRINTF(SystolicArray, "sparseAccelerator: FU %d is a Sparse Accelerator\n", fu_index);
 				}
 
                 DPRINTF(MinorExecute, "Trying to issue inst: %s to FU: %d\n",
@@ -827,16 +833,21 @@ Execute::issue(ThreadID thread_id)
                             thread.inFUMemInsts->push(fu_inst);
                         }
 
+						bool is_vpop = false;
+						bool is_ivpush = false;
+						bool is_wvpush = false;
+						bool is_compute = false;
+
 						if (is_systolicArray) {
 							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
 							DPRINTF(SystolicArray, "systolicarray: processing...\n");
 							systolicFU->process();
-						}
 
-						bool is_vpop = (inst->staticInst->opClass() == gem5::enums::CustomMatMulvpop);
-						bool is_ivpush = (inst->staticInst->opClass() == gem5::enums::CustomMatMuliVpush);
-						bool is_wvpush = (inst->staticInst->opClass() == gem5::enums::CustomMatMulwVpush);
-						bool is_compute = (inst->staticInst->opClass() == gem5::enums::CustomMatMul);
+							is_vpop = (inst->staticInst->opClass() == gem5::enums::CustomMatMulvpop);
+							is_ivpush = (inst->staticInst->opClass() == gem5::enums::CustomMatMuliVpush);
+							is_wvpush = (inst->staticInst->opClass() == gem5::enums::CustomMatMulwVpush);
+							is_compute = (inst->staticInst->opClass() == gem5::enums::CustomMatMul);
+						}
 
 						if (is_ivpush) {
 							DPRINTF(SystolicArray, "systolicarray: Handle input vpush inst.\n");
@@ -853,7 +864,7 @@ Execute::issue(ThreadID thread_id)
 						} else if (is_vpop) {
 							DPRINTF(SystolicArray, "systolicarray: Handle vpop inst.\n");
 							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
-							if(systolicFU->is_popable(8)) systolicFU->vpop(8); // temporarly fixed as vlmul == 1
+							if (systolicFU->is_popable(8)) systolicFU->vpop(8); // temporarly fixed as vlmul == 1
 							else {
 								DPRINTF(SystolicArray, "systolicarray: FU popable %d\n", systolicFU->ready_size());
 								fu_index++;

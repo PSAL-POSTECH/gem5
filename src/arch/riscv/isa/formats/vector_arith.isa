@@ -1169,7 +1169,7 @@ def format VectorNonSplitFormat(code, category, *flags) {{
         decoder_output = VectorNonSplitConstructor.subst(iop)
         exec_output = VectorIntNonSplitExecute.subst(iop)
         decode_block = VectorIntNonSplitDecodeBlock.subst(iop)
-    elif "compute00" < inst_name <= "compute32" :
+    elif "compute00" <= inst_name < "compute32" :
         iop = InstObjParams(name,
             Name,
             'VectorNonSplitInst',
