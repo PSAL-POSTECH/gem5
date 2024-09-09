@@ -511,6 +511,8 @@ Fetch1::changeStream(const BranchData &branch)
         break;
       default:
         DPRINTF(Fetch, "Changing stream on branch: %s\n", branch);
+		if (std::strcmp(branch.inst->staticInst->getName().c_str(), "M5Op") == 0)
+			DPRINTF(PyTorchSim, "inst: %s at cycle %d\n", branch.inst->staticInst->getName(), cpu.curCycle());
         thread.state = FetchRunning;
         break;
     }

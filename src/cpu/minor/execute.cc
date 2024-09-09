@@ -686,9 +686,9 @@ Execute::issue(ThreadID thread_id)
 				bool is_systolicArray = (fu->description.unitType == "SystolicArray");
 				bool is_sparseAccelerator = (fu->description.unitType == "SparseAccelerator");
 
-				if (is_systolicArray) {
-					DPRINTF(SystolicArray, "systolicarray: FU %d is a Systolic Array\n", fu_index); // GW DEBUG
-				}
+//				if (is_systolicArray) {
+//					DPRINTF(SystolicArray, "systolicarray: FU %d is a Systolic Array\n", fu_index); // GW DEBUG
+//				}
 				if (is_sparseAccelerator) {
 					DPRINTF(SystolicArray, "sparseAccelerator: FU %d is a Sparse Accelerator\n", fu_index);
 				}
@@ -832,43 +832,37 @@ Execute::issue(ThreadID thread_id)
                                 *inst);
                             thread.inFUMemInsts->push(fu_inst);
                         }
-
-						bool is_vpop = false;
-						bool is_ivpush = false;
-						bool is_wvpush = false;
-						bool is_compute = false;
+						if (inst->staticInst->opClass() >= gem5::enums::CustomMatMulvexp)
+							DPRINTF(PyTorchSim, "%s Issue at %d\n", *inst, cpu.curCycle());
 
 						if (is_systolicArray) {
 							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
-							DPRINTF(SystolicArray, "systolicarray: processing...\n");
-							systolicFU->process();
+//							systolicFU->process();
+							systolicFU->run_systolicArray();
 
-							is_vpop = (inst->staticInst->opClass() == gem5::enums::CustomMatMulvpop);
-							is_ivpush = (inst->staticInst->opClass() == gem5::enums::CustomMatMuliVpush);
-							is_wvpush = (inst->staticInst->opClass() == gem5::enums::CustomMatMulwVpush);
-							is_compute = (inst->staticInst->opClass() == gem5::enums::CustomMatMul);
-						}
-
-						if (is_ivpush) {
-							DPRINTF(SystolicArray, "systolicarray: Handle input vpush inst.\n");
-							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
-							systolicFU->pushInput(8); // temporarly fixed as vlmul == 1
-						} else if (is_wvpush) {
-							DPRINTF(SystolicArray, "systolicarray: Handle weight vpush inst.\n");
-							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
-							systolicFU->pushWeight(8); // temporarly fixed as vlmul == 1
-						} else if (is_compute) {
-							DPRINTF(SystolicArray, "systolicarray: Handle compute%d inst.\n", computeCycle(*inst));
-							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
-							systolicFU->compute(computeCycle(*inst)); // temporarly
-						} else if (is_vpop) {
-							DPRINTF(SystolicArray, "systolicarray: Handle vpop inst.\n");
-							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
-							if (systolicFU->is_popable(8)) systolicFU->vpop(8); // temporarly fixed as vlmul == 1
-							else {
-								DPRINTF(SystolicArray, "systolicarray: FU popable %d\n", systolicFU->ready_size());
-								fu_index++;
-								continue;
+							if (inst->staticInst->opClass() == gem5::enums::CustomMatMuliVpush) {
+								DPRINTF(PyTorchSim, "%s Issue at %d\n", *inst, cpu.curCycle());
+//								SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
+//								systolicFU->pushInput(8); // temporarly fixed as vlmul == 1
+							} else if (inst->staticInst->opClass() == gem5::enums::CustomMatMulwVpush) {
+								DPRINTF(PyTorchSim, "%s Issue at %d\n", *inst, cpu.curCycle());
+//								SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
+//								systolicFU->pushWeight(8); // temporarly fixed as vlmul == 1
+							} else if (inst->staticInst->opClass() == gem5::enums::CustomMatMul) {
+								DPRINTF(PyTorchSim, "%s Issue at %d\n", *inst, cpu.curCycle());
+								DPRINTF(SystolicArray, "systolicarray: Issue compute%d inst.\n", computeCycle(*inst));
+//								SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
+//								systolicFU->compute(computeCycle(*inst));
+							} else if (inst->staticInst->opClass() == gem5::enums::CustomMatMulvpop) {
+								SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
+								if (systolicFU->is_popable(8)) {
+									DPRINTF(PyTorchSim, "%s Issue at %d\n", *inst, cpu.curCycle());
+//									systolicFU->vpop(8); // temporarly fixed as vlmul == 1
+								} else {
+									DPRINTF(SystolicArray, "systolicarray: FU popable %d\n", systolicFU->ready_size());
+									fu_index++;
+									continue;
+								}
 							}
 						}
 
@@ -1096,6 +1090,29 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
         ExecContext context(cpu, *cpu.threads[thread_id], *this, inst);
 
         DPRINTF(MinorExecute, "Committing inst: %s\n", *inst);
+
+		if (funcUnits.size() > inst->fuIndex) {
+			FUPipeline *fu = funcUnits[inst->fuIndex];
+
+			if (fu->description.unitType == "SystolicArray") {\
+				SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
+
+				if (inst->staticInst->opClass() == gem5::enums::CustomMatMulvpop) {
+					DPRINTF(SystolicArray, "Commit vpop.v\n");
+					systolicFU->vpop(8);
+				} else if (inst->staticInst->opClass() == gem5::enums::CustomMatMulwVpush) {
+					DPRINTF(SystolicArray, "Commit vpush_weight.v\n");
+					systolicFU->pushWeight(8);
+				} else if (inst->staticInst->opClass() == gem5::enums::CustomMatMuliVpush) {
+					DPRINTF(SystolicArray, "Commit vpush_input.v\n");
+					systolicFU->pushInput(8);
+				} else {
+					DPRINTF(SystolicArray, "Not Supported Instruction %s\n", inst->staticInst->getName());
+				}
+
+				DPRINTF(SystolicArray, "Committing inst: %s at SystolicArray (FU%d)\n", *inst, inst->fuIndex);
+			}
+		}
 
         fault = inst->staticInst->execute(&context,
             inst->traceData);
@@ -1484,6 +1501,9 @@ Execute::commit(ThreadID thread_id, bool only_commit_microops, bool discard,
         if (completed_inst && !(issued_mem_ref && fault == NoFault)) {
             /* Note that this includes discarded insts */
             DPRINTF(MinorExecute, "Completed inst: %s\n", *inst);
+			if (inst->staticInst->opClass() >= gem5::enums::CustomMatMul) {
+				DPRINTF(PyTorchSim, "%s Complete at %d\n", *inst, cpu.curCycle());
+			}
 
             /* Got to the end of a full instruction? */
             ex_info.lastCommitWasEndOfMacroop = inst->isFault() ||

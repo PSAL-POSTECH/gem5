@@ -62,6 +62,10 @@
 #include "sim/sim_object.hh"
 
 #include "debug/SystolicArray.hh"
+#include "debug/PyTorchSim.hh"
+
+#define VALID_DATA 1
+#define INVALID_DATA 0
 
 namespace gem5
 {
@@ -206,7 +210,7 @@ class SystolicArrayFU : public MinorFU
 	bool is_oqueue_empty;
 	bool is_processing;
   private:
-	int serializerSize = 128;
+	int serializerSize = 256;
 	int saSize;
 
 	std::queue<int> wQueue;
@@ -229,7 +233,7 @@ class SystolicArrayFU : public MinorFU
 
 	void pushWeight(int size) {
 		for (int i = 0; i < size; i++) {
-			wQueue.push(1);
+			wQueue.push(VALID_DATA);
 		}
 	}
 
@@ -240,7 +244,7 @@ class SystolicArrayFU : public MinorFU
 		DPRINTF(SystolicArray, "systolicarray.pushInput: input size: %d\n", size);
 
 		for (int i = 0; i < size; i++) {
-			iQueue.push(index++);
+			iQueue.push(VALID_DATA);
 		}
 	}
 
@@ -250,6 +254,40 @@ class SystolicArrayFU : public MinorFU
 		process_cycle += cycle;
 		is_processing = (process_cycle > 0);
 		DPRINTF(SystolicArray, "systolicarray.compute: remaining processing cycle: %d\n", process_cycle);
+	}
+
+	void run_systolicArray() {
+		// check if SystolicArray & DeSerializer are both full.
+		// this situation means that SystolicArray cannot process untill vpop occurs.
+		// therefore, SystolicArray should be halted.
+		if (oQueue.size() == serializerSize) {
+			DPRINTF(SystolicArray, "systolic.run: DeSerializer is full! Needs to be popped by vpop instruction\n");
+			return;
+		}
+
+		// SystolicArray -> DeSerializer
+		// if SystolicArray is full, pop front element
+		// and if the front() is VALID_DATA, push it into DeSerializer
+		if (SAQueue.size() == saSize) {
+			DPRINTF(SystolicArray, "systolic.run: SystolicArray is all warmed up!\n");
+			if (SAQueue.front() != INVALID_DATA) {
+				DPRINTF(SystolicArray, "systolic.run: Valid data %d is processed to DeSerializer.\n", SAQueue.front());
+				oQueue.push(SAQueue.front());
+			}
+			SAQueue.pop();
+		}
+
+		// Serializer -> SystolicArray
+		// push a single element to SystolicArray from iQueue
+		// if iQueue is empty, push a invalid_data(0)
+		if (iQueue.empty()) {
+			DPRINTF(SystolicArray, "systolic.run: Serializer is empty. INVALID\n");
+			SAQueue.push(INVALID_DATA);
+		} else {
+			DPRINTF(SystolicArray, "systolic.run: Serializer[%d/%d] has data. VALID\n", iQueue.size(), serializerSize);
+			SAQueue.push(iQueue.front());
+			iQueue.pop();
+		}
 	}
 
 	void process() {
