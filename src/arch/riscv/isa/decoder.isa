@@ -1492,6 +1492,29 @@ decode QUADRANT default Unknown::unknown() {
                 }}, inst_flags=SimdIndexedStoreOp);
             }
         }
+
+		0x0a: decode FUNCT3 {
+			0x3: decode FUNCT7 {
+				format ROp {
+					0x0: config ({{ // config rs1 rs2
+						Rs1 = Rs1 ^ Rs2;
+					}});
+					0x1: mvin2 ({{ // mvin2 rs1 rs2
+						Rs1 = Rs1 ^ Rs2;
+					}});
+					0x2: mvin ({{ // mvin rs1 rs2
+						Rs1 = Rs1 ^ Rs2;
+					}});
+					0x3: mvout ({{ // mvout rs1 rs2
+						Rs1 = Rs1 ^ Rs2;
+					}});
+					0xe: mvin3 ({{ // mvin3 rs1 rs2
+						Rs1 = Rs1 ^ Rs2;
+					}});
+				}
+			}
+		}
+
         0x0b: decode FUNCT3 {
             0x2: decode AMOFUNCT {
                 0x2: LoadReserved::lr_w({{
