@@ -210,6 +210,7 @@ class SystolicArrayFU : public MinorFU
 	bool is_oqueue_empty;
 	bool is_processing;
   private:
+	bool trigger = false;
 	int serializerSize = 256;
 	int saSize;
 
@@ -240,7 +241,7 @@ class SystolicArrayFU : public MinorFU
 		}
 	}
 
-	void pushInput(int size) {
+	void pushInput(int size, uint64_t cycle) {
 		assert(iQueue.size() + size <= serializerSize);
 
 		DPRINTF(SystolicArray, "systolicarray.pushInput: current iQueueSize: %d\n", iQueue.size());
@@ -248,6 +249,11 @@ class SystolicArrayFU : public MinorFU
 
 		for (int i = 0; i < size; i++) {
 			iQueue.push(VALID_DATA);
+		}
+
+		if (!trigger) {
+			last_cycle = cycle;
+			trigger = true;
 		}
 	}
 
@@ -263,6 +269,10 @@ class SystolicArrayFU : public MinorFU
 		// check if SystolicArray & DeSerializer are both full.
 		// this situation means that SystolicArray cannot process untill vpop occurs.
 		// therefore, SystolicArray should be halted.
+		if (!trigger)
+			return;
+
+		DPRINTF(SystolicArray, "systolic.run: Run for %d times\n", cycle - last_cycle);
 		for (uint64_t i = last_cycle; i < cycle; i++) {
 			if (oQueue.size() == serializerSize) {
 				DPRINTF(SystolicArray, "systolic.run: DeSerializer is full! Needs to be popped by vpop instruction\n");
@@ -359,7 +369,7 @@ class SparseAccelFU : public MinorFU
   public:
 	SparseAccelFU(const MinorFUParams &params) :
 		MinorFU(params)
-	{ }		
+	{ }
 };
 
 /** A collection of MinorFUs */

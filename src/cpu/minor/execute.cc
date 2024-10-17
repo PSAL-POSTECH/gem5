@@ -1105,7 +1105,7 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
 					systolicFU->pushWeight(8);
 				} else if (inst->staticInst->opClass() == gem5::enums::CustomMatMuliVpush) {
 					DPRINTF(SystolicArray, "Commit vpush_input.v\n");
-					systolicFU->pushInput(8);
+					systolicFU->pushInput(8, uint64_t(cpu.curCycle()));
 				} else {
 					DPRINTF(SystolicArray, "Not Supported Instruction %s\n", inst->staticInst->getName());
 				}
