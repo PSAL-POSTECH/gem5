@@ -221,6 +221,8 @@ class SystolicArrayFU : public MinorFU
 	int process_cycle;
 
 	int index;
+
+	uint64_t last_cycle;
   public:
 	SystolicArrayFU(const MinorFUParams &params) :
 		MinorFU(params),
@@ -228,7 +230,8 @@ class SystolicArrayFU : public MinorFU
 		is_processing(false),
 		saSize(params.systolicArrayWidth + params.systolicArrayHeight - 1),
 		process_cycle(0),
-		index(0)
+		index(0),
+		last_cycle(0)
     { }
 
 	void pushWeight(int size) {
@@ -256,38 +259,42 @@ class SystolicArrayFU : public MinorFU
 		DPRINTF(SystolicArray, "systolicarray.compute: remaining processing cycle: %d\n", process_cycle);
 	}
 
-	void run_systolicArray() {
+	void run_systolicArray(uint64_t cycle) {
 		// check if SystolicArray & DeSerializer are both full.
 		// this situation means that SystolicArray cannot process untill vpop occurs.
 		// therefore, SystolicArray should be halted.
-		if (oQueue.size() == serializerSize) {
-			DPRINTF(SystolicArray, "systolic.run: DeSerializer is full! Needs to be popped by vpop instruction\n");
-			return;
-		}
-
-		// SystolicArray -> DeSerializer
-		// if SystolicArray is full, pop front element
-		// and if the front() is VALID_DATA, push it into DeSerializer
-		if (SAQueue.size() == saSize) {
-			DPRINTF(SystolicArray, "systolic.run: SystolicArray is all warmed up!\n");
-			if (SAQueue.front() != INVALID_DATA) {
-				DPRINTF(SystolicArray, "systolic.run: Valid data %d is processed to DeSerializer.\n", SAQueue.front());
-				oQueue.push(SAQueue.front());
+		for (uint64_t i = last_cycle; i < cycle; i++) {
+			if (oQueue.size() == serializerSize) {
+				DPRINTF(SystolicArray, "systolic.run: DeSerializer is full! Needs to be popped by vpop instruction\n");
+				return;
 			}
-			SAQueue.pop();
+
+			// SystolicArray -> DeSerializer
+			// if SystolicArray is full, pop front element
+			// and if the front() is VALID_DATA, push it into DeSerializer
+			if (SAQueue.size() == saSize) {
+				DPRINTF(SystolicArray, "systolic.run: SystolicArray is all warmed up!\n");
+				if (SAQueue.front() != INVALID_DATA) {
+					DPRINTF(SystolicArray, "systolic.run: Valid data %d is processed to DeSerializer.\n", SAQueue.front());
+					oQueue.push(SAQueue.front());
+				}
+				SAQueue.pop();
+			}
+
+			// Serializer -> SystolicArray
+			// push a single element to SystolicArray from iQueue
+			// if iQueue is empty, push a invalid_data(0)
+			if (iQueue.empty()) {
+				DPRINTF(SystolicArray, "systolic.run: Serializer is empty. INVALID\n");
+				SAQueue.push(INVALID_DATA);
+			} else {
+				DPRINTF(SystolicArray, "systolic.run: Serializer[%d/%d] has data. VALID\n", iQueue.size(), serializerSize);
+				SAQueue.push(iQueue.front());
+				iQueue.pop();
+			}
 		}
 
-		// Serializer -> SystolicArray
-		// push a single element to SystolicArray from iQueue
-		// if iQueue is empty, push a invalid_data(0)
-		if (iQueue.empty()) {
-			DPRINTF(SystolicArray, "systolic.run: Serializer is empty. INVALID\n");
-			SAQueue.push(INVALID_DATA);
-		} else {
-			DPRINTF(SystolicArray, "systolic.run: Serializer[%d/%d] has data. VALID\n", iQueue.size(), serializerSize);
-			SAQueue.push(iQueue.front());
-			iQueue.pop();
-		}
+		last_cycle = cycle;
 	}
 
 	void process() {
