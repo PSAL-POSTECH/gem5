@@ -48,7 +48,7 @@
 ##include "m5ops.isa"
 
 // Matrix Multiplication operations
-##include "mm.isa"
+//##include "mm.isa"
 
 // Include the unknown
 ##include "unknown.isa"

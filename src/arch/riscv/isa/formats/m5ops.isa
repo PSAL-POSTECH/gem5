@@ -42,7 +42,6 @@ def format M5Op() {{
             if (machInst.rv_type == RV32) {
                 pseudo_inst::pseudoInst<RegABI32>(xc->tcBase(), M5FUNC, result);
                 a0 = bits(result, 31, 0);
-                a1 = bits(result, 63, 32);
             } else {
                 pseudo_inst::pseudoInst<RegABI64>(xc->tcBase(), M5FUNC, result);
                 a0 = rvSext(result);
