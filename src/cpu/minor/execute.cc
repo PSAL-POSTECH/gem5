@@ -842,6 +842,13 @@ Execute::issue(ThreadID thread_id)
 
 							if (inst->staticInst->opClass() == gem5::enums::CustomMatMuliVpush) {
 								DPRINTF(PyTorchSim, "%s Issue at %d\n", *inst, cpu.curCycle());
+								if (systolicFU->is_input_pushable(uint64_t(cpu.curCycle()))) {
+									DPRINTF(SystolicArray, "systolicarray: FU input push\n");
+								} else {
+									DPRINTF(SystolicArray, "systolicarray: cannot push input yet\n");
+									fu_index++;
+									continue;
+								}
 //								SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
 //								systolicFU->pushInput(8); // temporarly fixed as vlmul == 1
 							} else if (inst->staticInst->opClass() == gem5::enums::CustomMatMulwVpush) {
@@ -1102,7 +1109,7 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
 					systolicFU->vpop(8);
 				} else if (inst->staticInst->opClass() == gem5::enums::CustomMatMulwVpush) {
 					DPRINTF(SystolicArray, "Commit vpush_weight.v\n");
-					systolicFU->pushWeight(8);
+					systolicFU->pushWeight(8, uint64_t(cpu.curCycle()));
 				} else if (inst->staticInst->opClass() == gem5::enums::CustomMatMuliVpush) {
 					DPRINTF(SystolicArray, "Commit vpush_input.v\n");
 					systolicFU->pushInput(8, uint64_t(cpu.curCycle()));

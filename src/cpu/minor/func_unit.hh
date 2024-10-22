@@ -211,8 +211,10 @@ class SystolicArrayFU : public MinorFU
 	bool is_processing;
   private:
 	bool trigger = false;
+	bool w_Trigger = false;
 	int serializerSize = 256;
 	int saSize;
+	uint64_t i_Trigger;
 
 	std::queue<int> wQueue;
 	std::queue<int> iQueue;
@@ -235,7 +237,14 @@ class SystolicArrayFU : public MinorFU
 		last_cycle(0)
     { }
 
-	void pushWeight(int size) {
+	void pushWeight(int size, uint64_t cycle) {
+		if (!w_Trigger) {
+			DPRINTF(SystolicArray, "systolicarray.pushWeight: First push: %d\n", cycle);
+			DPRINTF(SystolicArray, "systolicarray.pushWeight: input push avail: %d\n", cycle+255);
+			w_Trigger = true;
+			i_Trigger = cycle + 255;
+		}
+
 		for (int i = 0; i < size; i++) {
 			wQueue.push(VALID_DATA);
 		}
@@ -353,6 +362,10 @@ class SystolicArrayFU : public MinorFU
 		is_oqueue_empty = oQueue.empty();
 
 		DPRINTF(SystolicArray, "systolicarray.vpop: DeSerializer Size after vpop: %d\n", oQueue.size());
+	}
+
+	bool is_input_pushable(uint64_t cycle) {
+		return (cycle >= i_Trigger);
 	}
 
 	bool is_popable(int size) {
