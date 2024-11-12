@@ -4851,7 +4851,7 @@ decode QUADRANT default Unknown::unknown() {
 			    	Vd_vu[0] = 0;
 				}}, OPFVV, CustomMatMulvpopOp);
 			}
-			0x3: decode VM {
+			0xb: decode VM {
 				0x0: VectorNonSplitFormat::vexp_v({{
 					Vd_vu[0] = Vs2_vu[0];
 				}}, OPFVV, CustomMatMulvexpOp);
@@ -4868,76 +4868,6 @@ decode QUADRANT default Unknown::unknown() {
 			    	v_temp[0] = 0;
 				}}, OPFVV, CustomMatMulwVpushOp);
 			}
-//			0x13: decode SIMM5 {
-//				0x0: VectorNonSplitFormat::compute00_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x1: VectorNonSplitFormat::compute01_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x2: VectorNonSplitFormat::compute02_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x3: VectorNonSplitFormat::compute03_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x4: VectorNonSplitFormat::compute04_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x5: VectorNonSplitFormat::compute05_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x6: VectorNonSplitFormat::compute06_vi({{
-//                }}, OPIVI, CustomMatMulOp);
-//                0x7: VectorNonSplitFormat::compute07_vi({{
-//                }}, OPIVI, CustomMatMulOp);
-//
-//				0x8: VectorNonSplitFormat::compute08_vi({{
-////				Vd_vu[0] = (vi)sext<5>(SIMM5);
-//				}}, OPIVI, CustomMatMulOp);
-//				0x9: VectorNonSplitFormat::compute09_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0xa: VectorNonSplitFormat::compute10_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0xb: VectorNonSplitFormat::compute11_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0xc: VectorNonSplitFormat::compute12_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0xd: VectorNonSplitFormat::compute13_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0xe: VectorNonSplitFormat::compute14_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0xf: VectorNonSplitFormat::compute15_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//
-//				0x10: VectorNonSplitFormat::compute16_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x11: VectorNonSplitFormat::compute17_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x12: VectorNonSplitFormat::compute18_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x13: VectorNonSplitFormat::compute19_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x14: VectorNonSplitFormat::compute20_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x15: VectorNonSplitFormat::compute21_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x16: VectorNonSplitFormat::compute22_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x17: VectorNonSplitFormat::compute23_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//
-//				0x18: VectorNonSplitFormat::compute24_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x19: VectorNonSplitFormat::compute25_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x1a: VectorNonSplitFormat::compute26_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x1b: VectorNonSplitFormat::compute27_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x1c: VectorNonSplitFormat::compute28_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x1d: VectorNonSplitFormat::compute29_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x1e: VectorNonSplitFormat::compute30_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//				0x1f: VectorNonSplitFormat::compute31_vi({{
-//				}}, OPIVI, CustomMatMulOp);
-//			}
 	    }
 	}
 
