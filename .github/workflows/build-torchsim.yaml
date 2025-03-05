@@ -23,7 +23,7 @@ jobs:
           ghcr.io/gem5/ubuntu-22.04_all-dependencies:latest \
           bash -c 'if [ ! -d "gem5" ]; then
               git clone https://${GIT_ACCESS_TOKEN}@github.com/PSAL-POSTECH/gem5.git --branch TorchSim &&
-              cd gem5 &&
+              cd gem5 && git pull
               scons build/RISCV/gem5.opt -j$(nproc)
             else 
               cd gem5 && git pull
