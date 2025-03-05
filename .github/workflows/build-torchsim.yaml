@@ -57,3 +57,13 @@ jobs:
           asset_path: gem5-release.tar.gz
           asset_name: gem5-release.tar.gz
           asset_content_type: application/gzip
+
+  trigger:
+    name: Trigger build base image
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Trigger building base iamge
+        run: gh api /repos/PSAL-POSTECH/PyTorchSim/dispatches -f event_type='build_base'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
