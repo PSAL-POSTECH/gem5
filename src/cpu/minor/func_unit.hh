@@ -364,8 +364,8 @@ class SystolicArrayFU : public MinorFU
 		DPRINTF(SystolicArray, "systolicarray.vpop: DeSerializer Size after vpop: %d\n", oQueue.size());
 	}
 
-	bool is_input_pushable(uint64_t cycle) {
-		return (cycle >= i_Trigger);
+	bool is_input_pushable(uint64_t cycle) { // this function is legacy code. not used anymore.
+		return true; //(cycle >= i_Trigger);
 	}
 
 	bool is_popable(int size) {
