@@ -834,6 +834,8 @@ Execute::issue(ThreadID thread_id)
                         }
 						if (inst->staticInst->opClass() >= gem5::enums::CustomMatMulvexp)
 							DPRINTF(PyTorchSim, "%s Issue at %d\n", *inst, cpu.curCycle());
+                        if (inst->staticInst->opClass() >= gem5::enums::CustomMatMulverf)
+							DPRINTF(PyTorchSim, "%s Issue at %d\n", *inst, cpu.curCycle());
 
 						if (is_systolicArray) {
 							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));

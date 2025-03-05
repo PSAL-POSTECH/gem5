@@ -121,6 +121,7 @@ class OpClass(Enum):
         "CustomMatMulwVpush",
         "CustomMatMulvpop",
         "CustomMatMulvexp",
+        "CustomMatMulverf",
     ]
 
 

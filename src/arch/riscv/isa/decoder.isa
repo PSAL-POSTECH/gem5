@@ -4857,6 +4857,9 @@ decode QUADRANT default Unknown::unknown() {
 				}}, OPFVV, CustomMatMulvexpOp);
 			}
 			0x8: decode VM {
+                0x0: VectorNonSplitFormat::verf_v({{
+					Vd_vu[0] = Vs2_vu[0];
+				}}, OPFVV, CustomMatMulverfOp);
 				0x1: VectorNonSplitFormat::iVpush_v({{
 					auto v_temp = Vs2_vu;
 			    	v_temp[0] = 0;
