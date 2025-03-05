@@ -19,11 +19,11 @@ jobs:
           GIT_ACCESS_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
 
         run: |
-          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace \
+          docker run --rm -v ${{ github.workspace }}:/workspace -e GIT_ACCESS_TOKEN=${GIT_ACCESS_TOKEN} -w /workspace \
           ghcr.io/gem5/ubuntu-22.04_all-dependencies:latest \
           bash -c 'if [ ! -d "gem5" ]; then
               git clone https://${GIT_ACCESS_TOKEN}@github.com/PSAL-POSTECH/gem5.git --branch TorchSim &&
-              cd gem5 &&
+              cd gem5 && git pull
               scons build/RISCV/gem5.opt -j$(nproc)
             else 
               cd gem5 && git pull
@@ -57,3 +57,13 @@ jobs:
           asset_path: gem5-release.tar.gz
           asset_name: gem5-release.tar.gz
           asset_content_type: application/gzip
+
+  trigger:
+    name: Trigger build base image
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Trigger building base iamge
+        run: gh api /repos/PSAL-POSTECH/PyTorchSim/dispatches -f event_type='build_base'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
