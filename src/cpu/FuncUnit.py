@@ -123,6 +123,7 @@ class OpClass(Enum):
         "CustomMatMulvexp",
         "CustomMatMulverf",
         "CustomMatMulvtanh",
+        "CustomVlaneIdx",
     ]
 
 
