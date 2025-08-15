@@ -4859,12 +4859,12 @@ decode QUADRANT default Unknown::unknown() {
             0xb: decode VM {
                 0x0: VectorNonSplitFormat::vexp_v({{
                     Vd_vu[0] = Vs2_vu[0];
-                }}, OPFVV, CustomMatMulvexpOp);
+                }}, OPFVV, CustomVexpOp);
             }
             0x8: decode VM {
                 0x0: VectorNonSplitFormat::verf_v({{
                     Vd_vu[0] = Vs2_vu[0];
-                }}, OPFVV, CustomMatMulverfOp);
+                }}, OPFVV, CustomVerfOp);
                 0x1: VectorNonSplitFormat::iVpush_v({{
                     auto v_temp = Vs2_vu;
                     v_temp[0] = 0;
@@ -4873,11 +4873,16 @@ decode QUADRANT default Unknown::unknown() {
             0x9: decode VM {
                 0x0: VectorNonSplitFormat::vtanh_v({{
                     Vd_vu[0] = Vs2_vu[0];
-                }}, OPFVV, CustomMatMulvtanhOp);
+                }}, OPFVV, CustomVtanhOp);
                 0x1: VectorNonSplitFormat::wVpush_v({{
                     auto v_temp = Vs2_vu;
                     v_temp[0] = 0;
                 }}, OPFVV, CustomMatMulwVpushOp);
+            }
+            0x0a: decode VM {
+                0x0: VectorNonSplitFormat::vsin_v({{
+                    Vd_vu[0] = Vs2_vu[0];
+                }}, OPFVV, CustomVsinOp);
             }
         }
     }

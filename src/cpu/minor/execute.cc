@@ -832,11 +832,11 @@ Execute::issue(ThreadID thread_id)
                                 *inst);
                             thread.inFUMemInsts->push(fu_inst);
                         }
-						if (inst->staticInst->opClass() >= gem5::enums::CustomMatMulvexp)
+						if (inst->staticInst->opClass() >= gem5::enums::CustomVexp)
 							DPRINTF(PyTorchSim, "%s Issue at %d\n", *inst, cpu.curCycle());
-                        if (inst->staticInst->opClass() >= gem5::enums::CustomMatMulverf)
+                        if (inst->staticInst->opClass() >= gem5::enums::CustomVerf)
 							DPRINTF(PyTorchSim, "%s Issue at %d\n", *inst, cpu.curCycle());
-                        if (inst->staticInst->opClass() >= gem5::enums::CustomMatMulvtanh)
+                        if (inst->staticInst->opClass() >= gem5::enums::CustomVtanh)
 							DPRINTF(PyTorchSim, "%s Issue at %d\n", *inst, cpu.curCycle());
 
 						if (is_systolicArray) {
