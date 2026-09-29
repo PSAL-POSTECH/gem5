@@ -682,6 +682,14 @@ Fault
 def template VectorFloatDecodeBlock {{
 
 switch(machInst.vtype8.vsew) {
+// e8 IS AN fp8, AND IT MUST BE A CASE: the default is GEM5_UNREACHABLE, which
+// is __builtin_unreachable(), so an e8 float would fall into undefined behaviour
+// and still hand back a cycle count that looks fine.
+// It runs as float16_t ON PURPOSE. gem5 is asked for cycles and spike answers
+// for numbers, so the fp8 VALUE is not modelled here -- what this must do is
+// decode, cost something, and do it the same way every run. The narrow element
+// is read as if it were 16 bits wide, which is the approximation this makes.
+case 0b000: return new %(class_name)s<float16_t>(machInst, vlen);
 case 0b001: return new %(class_name)s<float16_t>(machInst, vlen);
 case 0b010: return new %(class_name)s<float32_t>(machInst, vlen);
 case 0b011: return new %(class_name)s<float64_t>(machInst, vlen);

@@ -1,0 +1,73 @@
+scons: Reading SConscript files ...
+Mkdir("/workspace/gem5-fp8/build/RISCV/gem5.build")
+Checking for linker -Wl,--as-needed support... (cached) yes
+Checking for compiler -gz support... (cached) yes
+Checking for linker -gz support... (cached) yes
+Info: Using Python config: python3-config
+Checking for C header file Python.h... (cached) yes
+Checking Python version... (cached) 3.10.12
+Checking for accept(0,0,0) in C++ library None... (cached) yes
+Checking for zlibVersion() in C++ library z... (cached) yes
+Checking for C library tcmalloc_minimal... (cached) yes
+Building in /workspace/gem5-fp8/build/RISCV
+"build_tools/kconfig_base.py" "/workspace/gem5-fp8/build/RISCV/gem5.build/Kconfig" "/workspace/gem5-fp8/src/Kconfig"
+Checking size of struct kvm_xsave ... (cached) yes
+Checking for C header file fenv.h... (cached) yes
+Checking for C header file png.h... (cached) yes
+Checking for clock_nanosleep(0,0,NULL,NULL) in C library None... (cached) yes
+Checking for C header file valgrind/valgrind.h... (cached) no
+Checking for pkg-config package hdf5-serial... (cached) yes
+Checking for H5Fcreate("", 0, 0, 0) in C library hdf5... (cached) yes
+Checking for H5::H5File("", 0) in C++ library hdf5_cpp... (cached) yes
+Checking for C header file capstone/capstone.h... (cached) no
+Warning: Header file <capstone/capstone.h> not found.
+         This host has no capstone library installed.
+Checking for C header file linux/kvm.h... (cached) yes
+Checking for timer_create(CLOCK_MONOTONIC, NULL, NULL) in C library None... (cached) yes
+Checking for member exclude_host in struct perf_event_attr...(cached) yes
+Checking for C header file linux/if_tun.h... (cached) yes
+Checking for shm_open("/test", 0, 0) in C library None... (cached) yes
+Checking for pkg-config package protobuf... (cached) yes
+Checking for backtrace_symbols_fd((void *)1, 0, 0) in C library None... (cached) yes
+Checking whether __i386__ is declared... (cached) no
+Checking whether __x86_64__ is declared... (cached) yes
+Checking for compiler -Wno-self-assign-overloaded support... (cached) yes
+Checking for linker -Wno-free-nonheap-object support... (cached) yes
+scons: done reading SConscript files.
+scons: Building targets ...
+ [     CXX] src/arch/riscv/decoder.cc -> RISCV/arch/riscv/decoder.o
+ [     CXX] src/arch/riscv/faults.cc -> RISCV/arch/riscv/faults.o
+ [     CXX] src/arch/riscv/isa.cc -> RISCV/arch/riscv/isa.o
+ [     CXX] src/arch/riscv/pagetable_walker.cc -> RISCV/arch/riscv/pagetable_walker.o
+ [     CXX] src/arch/riscv/pma_checker.cc -> RISCV/arch/riscv/pma_checker.o
+ [     CXX] src/arch/riscv/remote_gdb.cc -> RISCV/arch/riscv/remote_gdb.o
+ [     CXX] src/arch/riscv/tlb.cc -> RISCV/arch/riscv/tlb.o
+ [     CXX] src/arch/riscv/linux/se_workload.cc -> RISCV/arch/riscv/linux/se_workload.o
+ [     CXX] src/arch/riscv/linux/fs_workload.cc -> RISCV/arch/riscv/linux/fs_workload.o
+ [     CXX] src/arch/riscv/bare_metal/fs_workload.cc -> RISCV/arch/riscv/bare_metal/fs_workload.o
+ [     CXX] RISCV/python/_m5/param_RiscvDecoder.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvBareMetal.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvLinux.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvBootloaderKernelWorkload.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvMMU.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvSEWorkload.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvEmuLinux.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvPagetableWalker.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvTLB.cc -> .o
+ [ISA DESC] src/arch/riscv/isa/main.isa -> RISCV/arch/riscv/generated/decoder-g.cc.inc, RISCV/arch/riscv/generated/decoder-ns.cc.inc, RISCV/arch/riscv/generated/decode-method.cc.inc, RISCV/arch/riscv/generated/decoder.hh, RISCV/arch/riscv/generated/decoder-g.hh.inc, RISCV/arch/riscv/generated/decoder-ns.hh.inc, RISCV/arch/riscv/generated/exec-g.cc.inc, RISCV/arch/riscv/generated/exec-ns.cc.inc, RISCV/arch/riscv/generated/decoder.cc, RISCV/arch/riscv/generated/inst-constrs.cc, RISCV/arch/riscv/generated/generic_cpu_exec.cc
+ [     CXX] RISCV/arch/riscv/generated/decoder.cc -> .o
+ [     CXX] RISCV/arch/riscv/generated/inst-constrs.cc -> .o
+ [     CXX] RISCV/arch/riscv/generated/generic_cpu_exec.cc -> .o
+ [     CXX] src/arch/riscv/insts/amo.cc -> RISCV/arch/riscv/insts/amo.o
+ [     CXX] src/arch/riscv/insts/bs.cc -> RISCV/arch/riscv/insts/bs.o
+ [     CXX] src/arch/riscv/insts/compressed.cc -> RISCV/arch/riscv/insts/compressed.o
+ [     CXX] src/arch/riscv/insts/mem.cc -> RISCV/arch/riscv/insts/mem.o
+ [     CXX] src/arch/riscv/insts/standard.cc -> RISCV/arch/riscv/insts/standard.o
+ [     CXX] src/arch/riscv/insts/vector.cc -> RISCV/arch/riscv/insts/vector.o
+ [VER TAGS]  -> RISCV/sim/tags.cc
+ [     CXX] src/base/date.cc -> RISCV/base/date.o
+ [    LINK]  -> RISCV/gem5.opt
+scons: done building targets.
+*** Summary of Warnings ***
+Warning: Header file <capstone/capstone.h> not found.
+         This host has no capstone library installed.

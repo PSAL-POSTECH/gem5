@@ -3135,6 +3135,14 @@ decode QUADRANT default Unknown::unknown() {
                             auto fd = f_to_nf<et>(ftype<ewt>(Vs2_vwu[i]));
                             Vd_vu[i + offset] = fd.v;
                         }}, OPFVV, SimdFloatCvtOp);
+                        // Zvfp8's quad narrowing convert, f32 straight to fp8.
+                        // THE VALUE IS NOT MODELLED HERE and does not need to be:
+                        // gem5 is asked for cycles, spike answers for numbers, and
+                        // nothing downstream reads what this writes. Decoding it is
+                        // what stops the panic; the operand count is what costs.
+                        0x19: vfncvt_f_f_q({{
+                            Vd_vu[i + offset] = Vs2_vwu[i];
+                        }}, OPFVV, SimdFloatCvtOp);
                         0x15: vfncvt_rod_f_f_w({{
                             softfloat_roundingMode = softfloat_round_odd;
                             auto fd = f_to_nf<et>(ftype<ewt>(Vs2_vwu[i]));

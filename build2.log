@@ -1,0 +1,140 @@
+scons: Reading SConscript files ...
+Mkdir("/workspace/gem5-fp8/build/RISCV/gem5.build")
+Checking for linker -Wl,--as-needed support... (cached) yes
+Checking for compiler -gz support... (cached) yes
+Checking for linker -gz support... (cached) yes
+Info: Using Python config: python3-config
+Checking for C header file Python.h... (cached) yes
+Checking Python version... (cached) 3.10.12
+Checking for accept(0,0,0) in C++ library None... (cached) yes
+Checking for zlibVersion() in C++ library z... (cached) yes
+Checking for C library tcmalloc_minimal... (cached) yes
+Building in /workspace/gem5-fp8/build/RISCV
+"build_tools/kconfig_base.py" "/workspace/gem5-fp8/build/RISCV/gem5.build/Kconfig" "/workspace/gem5-fp8/src/Kconfig"
+Checking size of struct kvm_xsave ... (cached) yes
+Checking for C header file fenv.h... (cached) yes
+Checking for C header file png.h... (cached) yes
+Checking for clock_nanosleep(0,0,NULL,NULL) in C library None... (cached) yes
+Checking for C header file valgrind/valgrind.h... (cached) no
+Checking for pkg-config package hdf5-serial... (cached) yes
+Checking for H5Fcreate("", 0, 0, 0) in C library hdf5... (cached) yes
+Checking for H5::H5File("", 0) in C++ library hdf5_cpp... (cached) yes
+Checking for C header file capstone/capstone.h... (cached) no
+Warning: Header file <capstone/capstone.h> not found.
+         This host has no capstone library installed.
+Checking for C header file linux/kvm.h... (cached) yes
+Checking for timer_create(CLOCK_MONOTONIC, NULL, NULL) in C library None... (cached) yes
+Checking for member exclude_host in struct perf_event_attr...(cached) yes
+Checking for C header file linux/if_tun.h... (cached) yes
+Checking for shm_open("/test", 0, 0) in C library None... (cached) yes
+Checking for pkg-config package protobuf... (cached) yes
+Checking for backtrace_symbols_fd((void *)1, 0, 0) in C library None... (cached) yes
+Checking whether __i386__ is declared... (cached) no
+Checking whether __x86_64__ is declared... (cached) yes
+Checking for compiler -Wno-self-assign-overloaded support... (cached) yes
+Checking for linker -Wno-free-nonheap-object support... (cached) yes
+scons: done reading SConscript files.
+scons: Building targets ...
+ [     CXX] src/arch/riscv/decoder.cc -> RISCV/arch/riscv/decoder.o
+ [     CXX] src/arch/riscv/faults.cc -> RISCV/arch/riscv/faults.o
+ [     CXX] src/arch/riscv/isa.cc -> RISCV/arch/riscv/isa.o
+ [     CXX] src/arch/riscv/pagetable_walker.cc -> RISCV/arch/riscv/pagetable_walker.o
+ [     CXX] src/arch/riscv/pma_checker.cc -> RISCV/arch/riscv/pma_checker.o
+ [     CXX] src/arch/riscv/remote_gdb.cc -> RISCV/arch/riscv/remote_gdb.o
+ [     CXX] src/arch/riscv/tlb.cc -> RISCV/arch/riscv/tlb.o
+ [     CXX] src/arch/riscv/linux/se_workload.cc -> RISCV/arch/riscv/linux/se_workload.o
+ [     CXX] src/arch/riscv/linux/fs_workload.cc -> RISCV/arch/riscv/linux/fs_workload.o
+ [     CXX] src/arch/riscv/bare_metal/fs_workload.cc -> RISCV/arch/riscv/bare_metal/fs_workload.o
+ [     CXX] RISCV/python/_m5/param_RiscvDecoder.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvBareMetal.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvLinux.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvBootloaderKernelWorkload.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvMMU.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvSEWorkload.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvEmuLinux.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvPagetableWalker.cc -> .o
+ [     CXX] RISCV/python/_m5/param_RiscvTLB.cc -> .o
+ [ISA DESC] src/arch/riscv/isa/main.isa -> RISCV/arch/riscv/generated/decoder-g.cc.inc, RISCV/arch/riscv/generated/decoder-ns.cc.inc, RISCV/arch/riscv/generated/decode-method.cc.inc, RISCV/arch/riscv/generated/decoder.hh, RISCV/arch/riscv/generated/decoder-g.hh.inc, RISCV/arch/riscv/generated/decoder-ns.hh.inc, RISCV/arch/riscv/generated/exec-g.cc.inc, RISCV/arch/riscv/generated/exec-ns.cc.inc, RISCV/arch/riscv/generated/decoder.cc, RISCV/arch/riscv/generated/inst-constrs.cc, RISCV/arch/riscv/generated/generic_cpu_exec.cc
+ [     CXX] RISCV/arch/riscv/generated/decoder.cc -> .o
+ [     CXX] RISCV/arch/riscv/generated/inst-constrs.cc -> .o
+ [     CXX] RISCV/arch/riscv/generated/generic_cpu_exec.cc -> .o
+ [     CXX] src/arch/riscv/insts/amo.cc -> RISCV/arch/riscv/insts/amo.o
+ [     CXX] src/arch/riscv/insts/bs.cc -> RISCV/arch/riscv/insts/bs.o
+ [     CXX] src/arch/riscv/insts/compressed.cc -> RISCV/arch/riscv/insts/compressed.o
+ [     CXX] src/arch/riscv/insts/mem.cc -> RISCV/arch/riscv/insts/mem.o
+ [     CXX] src/arch/riscv/insts/standard.cc -> RISCV/arch/riscv/insts/standard.o
+ [     CXX] src/arch/riscv/insts/vector.cc -> RISCV/arch/riscv/insts/vector.o
+ [VER TAGS]  -> RISCV/sim/tags.cc
+ [     CXX] src/base/date.cc -> RISCV/base/date.o
+ [    LINK]  -> RISCV/gem5.opt
+/usr/bin/ld: build/RISCV/arch/riscv/generated/decoder.o: in function `gem5::RiscvISA::Decoder::decodeInst(gem5::bitfield_backend::BitUnionOperators<gem5::RiscvISA::BitfieldUnderlyingClassesExtMachInst>)':
+/workspace/gem5-fp8/build/RISCV/arch/riscv/generated/decode-method.cc.inc:8545: undefined reference to `gem5::RiscvISAInst::Vfslide1down_vf<float8_t>::Vfslide1down_vf(gem5::bitfield_backend::BitUnionOperators<gem5::RiscvISA::BitfieldUnderlyingClassesExtMachInst>, unsigned int)'
+/usr/bin/ld: /workspace/gem5-fp8/build/RISCV/arch/riscv/generated/decode-method.cc.inc:8528: undefined reference to `gem5::RiscvISAInst::Vfslide1up_vf<float8_t>::Vfslide1up_vf(gem5::bitfield_backend::BitUnionOperators<gem5::RiscvISA::BitfieldUnderlyingClassesExtMachInst>, unsigned int)'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfadd_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfadd_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfadd_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst17Vfredusum_vsMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst17Vfredusum_vsMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfredusum_vsMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfsub_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfsub_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfsub_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst17Vfredosum_vsMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst17Vfredosum_vsMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfredosum_vsMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfmin_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfmin_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmin_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst16Vfredmin_vsMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst16Vfredmin_vsMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfredmin_vsMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfmax_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfmax_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmax_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst16Vfredmax_vsMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst16Vfredmax_vsMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfredmax_vsMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfsgnj_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfsgnj_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfsgnj_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfsgnjn_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfsgnjn_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfsgnjn_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfsgnjx_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfsgnjx_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfsgnjx_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst17Vfcvt_xu_f_vMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst17Vfcvt_xu_f_vMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfcvt_xu_f_vMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst16Vfcvt_x_f_vMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst16Vfcvt_x_f_vMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfcvt_x_f_vMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst17Vfcvt_f_xu_vMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst17Vfcvt_f_xu_vMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfcvt_f_xu_vMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst16Vfcvt_f_x_vMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst16Vfcvt_f_x_vMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfcvt_f_x_vMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst21Vfcvt_rtz_xu_f_vMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst21Vfcvt_rtz_xu_f_vMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfcvt_rtz_xu_f_vMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst20Vfcvt_rtz_x_f_vMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst20Vfcvt_rtz_x_f_vMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfcvt_rtz_x_f_vMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfsqrt_vMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfsqrt_vMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfsqrt_vMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfrsqrt7_vMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfrsqrt7_vMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfrsqrt7_vMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfrec7_vMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfrec7_vMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfrec7_vMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfclass_vMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfclass_vMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfclass_vMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vmfeq_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vmfeq_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vmfeq_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vmfle_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vmfle_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vmfle_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vmflt_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vmflt_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vmflt_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vmfne_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vmfne_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vmfne_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfdiv_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfdiv_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfdiv_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfmul_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfmul_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmul_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfmadd_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfmadd_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmadd_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfnmadd_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfnmadd_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfnmadd_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfmsub_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfmsub_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmsub_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfnmsub_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfnmsub_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfnmsub_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfmacc_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfmacc_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmacc_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfnmacc_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfnmacc_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfnmacc_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfmsac_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfmsac_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmsac_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfnmsac_vvMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfnmsac_vvMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfnmsac_vvMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfadd_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfadd_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfadd_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfsub_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfsub_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfsub_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfmin_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfmin_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmin_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfmax_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfmax_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmax_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfsgnj_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfsgnj_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfsgnj_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfsgnjn_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfsgnjn_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfsgnjn_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfsgnjx_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfsgnjx_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfsgnjx_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst16Vfmerge_vfmMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst16Vfmerge_vfmMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmerge_vfmMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfmv_v_fMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfmv_v_fMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmv_v_fMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vmfeq_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vmfeq_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vmfeq_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vmfle_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vmfle_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vmfle_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vmflt_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vmflt_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vmflt_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vmfne_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vmfne_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vmfne_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vmfgt_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vmfgt_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vmfgt_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vmfge_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vmfge_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vmfge_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfdiv_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfdiv_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfdiv_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfrdiv_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfrdiv_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfrdiv_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst13Vfmul_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst13Vfmul_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmul_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfrsub_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfrsub_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfrsub_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfmadd_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfmadd_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmadd_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfnmadd_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfnmadd_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfnmadd_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfmsub_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfmsub_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmsub_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfnmsub_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfnmsub_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfnmsub_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfmacc_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfmacc_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmacc_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfnmacc_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfnmacc_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfnmacc_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst14Vfmsac_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst14Vfmsac_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfmsac_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+/usr/bin/ld: build/RISCV/arch/riscv/generated/inst-constrs.o:(.data.rel.ro._ZTVN4gem512RiscvISAInst15Vfnmsac_vfMicroI8float8_tEE[_ZTVN4gem512RiscvISAInst15Vfnmsac_vfMicroI8float8_tEE]+0x30): undefined reference to `gem5::RiscvISAInst::Vfnmsac_vfMicro<float8_t>::execute(gem5::ExecContext*, gem5::trace::InstRecord*) const'
+collect2: error: ld returned 1 exit status
+scons: *** [build/RISCV/gem5.opt] Error 1
+scons: building terminated because of errors.
+*** Summary of Warnings ***
+Warning: Header file <capstone/capstone.h> not found.
+         This host has no capstone library installed.
