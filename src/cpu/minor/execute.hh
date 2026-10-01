@@ -55,6 +55,7 @@
 #include "cpu/minor/lsq.hh"
 #include "cpu/minor/pipe_data.hh"
 #include "cpu/minor/scoreboard.hh"
+#include "cpu/minor/vcix_accel_model.hh"
 
 namespace gem5
 {
@@ -265,6 +266,10 @@ class Execute : public Named
 
     /** Try and issue instructions from the inputBuffer */
     unsigned int issue(ThreadID thread_id);
+
+    /** The VCIX accelerator model, on some functional unit, that owns these
+     *  instruction bits; nullptr if none does */
+    VcixAccelModel *vcixOwner(uint32_t bits);
 
     /** Try to act on PC-related events.  Returns true if any were
      *  executed */

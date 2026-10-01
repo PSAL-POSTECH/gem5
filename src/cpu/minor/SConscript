@@ -58,6 +58,7 @@ if env['CONF']['BUILD_ISA']:
     Source('pipe_data.cc')
     Source('pipeline.cc')
     Source('scoreboard.cc')
+    Source('vcix_accel_model.cc')
     Source('stats.cc')
 
     DebugFlag('MinorCPU', 'Minor CPU-level events')

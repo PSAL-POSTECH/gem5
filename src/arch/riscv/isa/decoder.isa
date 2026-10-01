@@ -6016,6 +6016,8 @@ decode QUADRANT default Unknown::unknown() {
             }
         }
 
+        0x16: VcixOp::vcix();
+
         0x18: decode FUNCT3 {
             format BOp {
                 0x0: beq({{

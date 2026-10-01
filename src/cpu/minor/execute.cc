@@ -39,10 +39,13 @@
 
 #include <functional>
 
+#include "arch/riscv/faults.hh"
+#include "arch/riscv/insts/static_inst.hh"
 #include "cpu/minor/cpu.hh"
 #include "cpu/minor/exec_context.hh"
 #include "cpu/minor/fetch1.hh"
 #include "cpu/minor/lsq.hh"
+#include "cpu/minor/vcix_accel_model.hh"
 #include "cpu/op_class.hh"
 #include "debug/Activity.hh"
 #include "debug/Branch.hh"
@@ -132,6 +135,14 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
     for (unsigned int i = 0; i < numFuncUnits; i++) {
         std::ostringstream fu_name;
         MinorFU *fu_description = fuDescriptions.funcUnits[i];
+
+        /* A unit that names a VCIX accelerator model loads and configures
+         *  it now, so a bad path or description fails before simulation */
+        if (!fu_description->vcixModel.empty()) {
+            VcixAccelModel::load(fu_description->vcixModel).configure(
+                fu_description->vcixConfigKeys,
+                fu_description->vcixConfigValues);
+        }
 
         /* Note the total number of instruction slots (for sizing
          *  the inFlightInst queue) and the maximum latency of any FU
@@ -539,6 +550,35 @@ cyclicIndexDec(unsigned int index, unsigned int cycle_size)
     return ret;
 }
 
+/** A VCIX instruction as the model receives it: its bits and the vector
+ *  configuration it was decoded under */
+static vcix_insn
+vcixInsn(const StaticInst &inst)
+{
+    const RiscvISA::ExtMachInst &mach_inst =
+        static_cast<const RiscvISA::RiscvStaticInst &>(inst).machInst;
+    const int vlmul = mach_inst.vtype8.vlmul;
+
+    return vcix_insn{mach_inst.instBits, (uint32_t)mach_inst.vl,
+        8u << mach_inst.vtype8.vsew, vlmul < 4 ? vlmul : vlmul - 8};
+}
+
+VcixAccelModel *
+Execute::vcixOwner(uint32_t bits)
+{
+    for (FUPipeline *fu : funcUnits) {
+        const std::string &path = fu->description.vcixModel;
+
+        if (path.empty())
+            continue;
+
+        VcixAccelModel &accel = VcixAccelModel::load(path);
+        if (accel.owns(bits))
+            return &accel;
+    }
+    return nullptr;
+}
+
 unsigned int
 Execute::issue(ThreadID thread_id)
 {
@@ -704,6 +744,35 @@ Execute::issue(ThreadID thread_id)
                                 timing->extraCommitLatExpr;
                             extra_assumed_lat =
                                 timing->extraAssumedLat;
+                        }
+
+                        if (!inst->isFault() &&
+                            inst->staticInst->opClass() == VcixAccelOp)
+                        {
+                            VcixAccelModel &accel = VcixAccelModel::load(
+                                fu->description.vcixModel);
+                            const vcix_insn vcix = vcixInsn(*inst->staticInst);
+                            const uint32_t bits = vcix.bits;
+                            uint64_t now = cpu.curCycle();
+
+                            /* An instruction no model owns passes through
+                             *  unasked; commit makes it an illegal
+                             *  instruction */
+                            if (accel.owns(bits)) {
+                                if (!accel.canAccept(vcix, now)) {
+                                    fu_index++;
+                                    continue;
+                                }
+                                Cycles lat(accel.latency(vcix, now));
+                                if (lat > fu->description.opLat) {
+                                    extra_dest_retire_lat =
+                                        lat - fu->description.opLat;
+                                }
+                            } else if (vcixOwner(bits)) {
+                                /* Another unit's model owns it */
+                                fu_index++;
+                                continue;
+                            }
                         }
 
                         issued_mem_ref = inst->isMemRef();
@@ -1035,8 +1104,24 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
 
         DPRINTF(MinorExecute, "Committing inst: %s\n", *inst);
 
-        fault = inst->staticInst->execute(&context,
-            inst->traceData);
+        if (inst->staticInst->opClass() == VcixAccelOp) {
+            /* The model's timing state changes here, once per committed
+             *  instruction; an instruction no model owns is illegal */
+            const auto &rv_inst = static_cast<
+                const RiscvISA::RiscvStaticInst &>(*inst->staticInst);
+            VcixAccelModel *accel = vcixOwner(rv_inst.machInst.instBits);
+
+            if (accel) {
+                accel->commit(vcixInsn(*inst->staticInst), cpu.curCycle());
+                fault = inst->staticInst->execute(&context, inst->traceData);
+            } else {
+                fault = std::make_shared<RiscvISA::IllegalInstFault>(
+                    "no VCIX accelerator model owns it", rv_inst.machInst);
+            }
+        } else {
+            fault = inst->staticInst->execute(&context,
+                inst->traceData);
+        }
 
         /* Set the predicate for tracing and dump */
         if (inst->traceData)

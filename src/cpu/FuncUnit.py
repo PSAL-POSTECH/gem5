@@ -130,6 +130,7 @@ class OpClass(Enum):
         "SimdBf16Mult",
         "SimdBf16MultAcc",
         "Bf16Cvt",
+        "VcixAccel",
         "System",
     ]
 

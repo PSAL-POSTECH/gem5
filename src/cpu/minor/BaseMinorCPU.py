@@ -135,6 +135,15 @@ class MinorFU(SimObject):
         1, "cycles until another instruction can be issued"
     )
     timings = VectorParam.MinorFUTiming([], "extra decoding rules")
+    vcixModel = Param.String(
+        "", "VCIX accelerator model (.so) this unit asks"
+    )
+    vcixConfigKeys = VectorParam.String(
+        [], "keys of the machine description the model is configured from"
+    )
+    vcixConfigValues = VectorParam.String(
+        [], "the value of each key in vcixConfigKeys, as written"
+    )
 
     cantForwardFromFUIndices = VectorParam.Unsigned(
         [],
@@ -279,6 +288,14 @@ class MinorDefaultMemFU(MinorFU):
 class MinorDefaultMiscFU(MinorFU):
     opClasses = minorMakeOpClassSet(["InstPrefetch", "System"])
     opLat = 1
+
+
+class MinorVcixAccelFU(MinorFU):
+    # Every instruction a VCIX accelerator model owns; set vcixModel to its
+    # shared library. Stall and latency come from the model, not from here.
+    opClasses = minorMakeOpClassSet(["VcixAccel"])
+    opLat = 1
+    issueLat = 1
 
 
 class MinorDefaultFUPool(MinorFUPool):

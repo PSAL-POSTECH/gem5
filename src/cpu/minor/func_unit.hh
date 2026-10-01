@@ -174,6 +174,15 @@ class MinorFU : public SimObject
     /** Extra timing info to give timings to individual ops */
     std::vector<MinorFUTiming *> timings;
 
+    /** Shared library of the VCIX accelerator model this unit asks; empty
+     *  for every other unit */
+    std::string vcixModel;
+
+    /** The machine description that model is configured from, as parallel
+     *  keys and values */
+    std::vector<std::string> vcixConfigKeys;
+    std::vector<std::string> vcixConfigValues;
+
   public:
     MinorFU(const MinorFUParams &params) :
         SimObject(params),
@@ -181,7 +190,10 @@ class MinorFU : public SimObject
         opLat(params.opLat),
         issueLat(params.issueLat),
         cantForwardFromFUIndices(params.cantForwardFromFUIndices),
-        timings(params.timings)
+        timings(params.timings),
+        vcixModel(params.vcixModel),
+        vcixConfigKeys(params.vcixConfigKeys),
+        vcixConfigValues(params.vcixConfigValues)
     { }
 };
 

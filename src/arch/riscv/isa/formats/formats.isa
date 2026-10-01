@@ -50,4 +50,7 @@
 ##include "m5ops.isa"
 
 // Include the unknown
+##include "vcix.isa"
+
+// Include formats for unknown instructions
 ##include "unknown.isa"

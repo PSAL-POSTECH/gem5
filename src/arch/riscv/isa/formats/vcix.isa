@@ -1,0 +1,9 @@
+// -*- mode:c++ -*-
+
+////////////////////////////////////////////////////////////////////
+//
+// VCIX instructions: one class for the whole custom-2 opcode
+//
+def format VcixOp() {{
+    decode_block = "return new Vcix(machInst);\n"
+}};
