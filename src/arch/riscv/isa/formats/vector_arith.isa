@@ -1282,7 +1282,7 @@ def format VectorNonSplitFormat(code, category, *flags) {{
     # failure rather than a wrong answer -- so the two stay in step by being loud.
     elif inst_name in ("xVpushXpose", "xVpopXpose", "xVpushGather", "xVpopGather",
                        "xVpushBcast", "xVpopBcast", "xVpushPermute",
-                       "xVpopPermute") :
+                       "xVpopPermute", "msaVpush", "msaVpop") :
         iop = InstObjParams(name,
             Name,
             'VectorNonSplitInst',

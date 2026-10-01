@@ -379,6 +379,83 @@ class SystolicArrayFU : public MinorFU
 	}
 };
 
+/** The multi-precision array: SystolicArrayFU's copy whose live width comes from the
+ *  weight push's SIMM5 ([3:2] is the width shift). Fill latency is rows + live columns
+ *  - 1 and one A row enters per cycle in every format; a narrow format's gain is fewer
+ *  K trips, which the instruction stream already carries. */
+class MsaFU : public MinorFU
+{
+  private:
+	int serializerSize = 256;
+	int rows;
+	int width;
+	size_t saSize;
+	bool trigger = false;
+	uint64_t last_cycle = 0;
+
+	std::queue<int> iQueue;
+	std::queue<int> SAQueue;
+	std::queue<int> oQueue;
+
+  public:
+	MsaFU(const MinorFUParams &params) :
+		MinorFU(params),
+		rows(params.systolicArrayHeight),
+		width(params.systolicArrayWidth),
+		saSize(params.systolicArrayHeight + params.systolicArrayWidth - 1)
+	{ }
+
+	void configure(int simm5) {
+		int active = width >> ((simm5 >> 2) & 3);
+		saSize = rows + active - 1;
+		DPRINTF(SystolicArray, "msa.configure: %d live columns, fill %d\n", active, saSize);
+	}
+
+	void pushInput(int size, uint64_t cycle) {
+		assert(iQueue.size() + size <= serializerSize);
+		for (int i = 0; i < size; i++)
+			iQueue.push(VALID_DATA);
+		if (!trigger) {
+			last_cycle = cycle;
+			trigger = true;
+		}
+	}
+
+	// As run_systolicArray, but drains while the pipe is at OR ABOVE its fill: a
+	// narrower width shrinks saSize under data already in flight.
+	void run(uint64_t cycle) {
+		if (!trigger)
+			return;
+		for (uint64_t i = last_cycle; i < cycle; i++) {
+			while (SAQueue.size() >= saSize) {
+				if (oQueue.size() == serializerSize) {
+					last_cycle = cycle;
+					return;
+				}
+				if (SAQueue.front() != INVALID_DATA)
+					oQueue.push(SAQueue.front());
+				SAQueue.pop();
+			}
+			if (iQueue.empty()) {
+				SAQueue.push(INVALID_DATA);
+			} else {
+				SAQueue.push(iQueue.front());
+				iQueue.pop();
+			}
+		}
+		last_cycle = cycle;
+	}
+
+	void vpop(int size) {
+		assert(oQueue.size() >= size);
+		for (int i = 0; i < size; i++)
+			oQueue.pop();
+	}
+
+	bool is_popable(int size) const { return oQueue.size() >= size; }
+	int ready_size() const { return oQueue.size(); }
+};
+
 /** The cross-lane unit, modelled the way SystolicArrayFU models the array: the
  *  FU holds the pass's state instead of pretending a constant is its latency.
  *  A push only stacks -- `depth` is the number of elements EACH LANE has handed

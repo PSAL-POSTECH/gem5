@@ -199,6 +199,31 @@ Execute::Execute(const std::string &name_,
 			FUPipeline *fu = new FUPipeline(fu_name.str(), *fu_description, cpu);
 
 			funcUnits.push_back(fu);
+		} else if (fuDescriptions.funcUnits[i]->unitType == "Msa") {
+			MinorFU *temp_fu = fuDescriptions.funcUnits[i];
+
+			MinorFUParams *DSParams = new MinorFUParams();
+			DSParams->opClasses = temp_fu->opClasses;
+			DSParams->opLat = temp_fu->opLat;
+			DSParams->systolicArrayWidth = temp_fu->systolicArrayWidth;
+			DSParams->systolicArrayHeight = temp_fu->systolicArrayHeight;
+			DSParams->issueLat = temp_fu->issueLat;
+			DSParams->cantForwardFromFUIndices = temp_fu->cantForwardFromFUIndices;
+			DSParams->timings = temp_fu->timings;
+			DSParams->unitType = temp_fu->unitType;
+
+			std::cout << "Creating MsaFU " << DSParams->systolicArrayWidth << "x"
+			          << DSParams->systolicArrayHeight << ", opLat " << DSParams->opLat << std::endl;
+
+			MsaFU *fu_description = new MsaFU(*DSParams);
+
+			total_slots += fu_description->opLat;
+
+			fu_name << name_ << ".fu." << i;
+
+			FUPipeline *fu = new FUPipeline(fu_name.str(), *fu_description, cpu);
+
+			funcUnits.push_back(fu);
 		} else if (fuDescriptions.funcUnits[i]->unitType == "CrossLane") {
 			MinorFU *temp_fu = fuDescriptions.funcUnits[i];
 
@@ -890,6 +915,18 @@ Execute::issue(ThreadID thread_id)
 							}
 						}
 
+						if (fu->description.unitType == "Msa") {
+							MsaFU *msa = const_cast<MsaFU*>(
+								dynamic_cast<const MsaFU*>(&fu->description));
+							msa->run(uint64_t(cpu.curCycle()));
+							if (inst->staticInst->opClass() == gem5::enums::CustomMsaVpop &&
+							    !msa->is_popable(vectorElemCount(*inst))) {
+								/* the rows are still in the pipe */
+								fu_index++;
+								continue;
+							}
+						}
+
 						if (is_systolicArray) {
 							SystolicArrayFU *systolicFU = const_cast<SystolicArrayFU*>(dynamic_cast<const SystolicArrayFU*>(&fu->description));
 //							systolicFU->process();
@@ -1170,6 +1207,22 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
 				else if (oc == gem5::enums::CustomTransposePop ||
 				         oc == gem5::enums::CustomCrossbarPop)
 					xlu->pop(vectorElemCount(*inst), uint64_t(cpu.curCycle()));
+			}
+
+			if (fu->description.unitType == "Msa") {
+				MsaFU *msa = const_cast<MsaFU*>(
+					dynamic_cast<const MsaFU*>(&fu->description));
+				OpClass oc = inst->staticInst->opClass();
+				if (oc == gem5::enums::CustomMsaVpush) {
+					/* SIMM5 is ExtMachInst[19:15] -- [4] weight, [3:2] width shift */
+					int simm5 = (int)((inst->staticInst->getEMI() >> 15) & 0x1F);
+					if (simm5 & 0x10)
+						msa->configure(simm5);
+					else
+						msa->pushInput(vectorElemCount(*inst), uint64_t(cpu.curCycle()));
+				} else if (oc == gem5::enums::CustomMsaVpop) {
+					msa->vpop(vectorElemCount(*inst));
+				}
 			}
 
 			if (fu->description.unitType == "SystolicArray") {\

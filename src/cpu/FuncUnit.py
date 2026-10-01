@@ -132,6 +132,8 @@ class OpClass(Enum):
         "CustomTransposePop",
         "CustomCrossbarPush",
         "CustomCrossbarPop",
+        "CustomMsaVpush",
+        "CustomMsaVpop",
     ]
 
 

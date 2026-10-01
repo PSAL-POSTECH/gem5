@@ -149,6 +149,8 @@ static const OpClass CustomTransposePushOp = enums::CustomTransposePush;
 static const OpClass CustomTransposePopOp = enums::CustomTransposePop;
 static const OpClass CustomCrossbarPushOp = enums::CustomCrossbarPush;
 static const OpClass CustomCrossbarPopOp = enums::CustomCrossbarPop;
+static const OpClass CustomMsaVpushOp = enums::CustomMsaVpush;
+static const OpClass CustomMsaVpopOp = enums::CustomMsaVpop;
 
 static const OpClass Num_OpClasses = enums::Num_OpClass;
 
