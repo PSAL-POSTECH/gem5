@@ -35,16 +35,23 @@ class VcixAccelModel
         return vcix_owner(model, bits) != nullptr;
     }
 
+    /** Can the model take this instruction now, given the ones issued to
+     *  it and not yet committed */
     bool
-    canAccept(const vcix_insn &insn, uint64_t now) const
+    canAccept(const vcix_insn &insn, uint64_t now,
+        const std::vector<vcix_pending> &pending) const
     {
-        return model->can_accept(model->self, &insn, now);
+        return model->can_accept(model->self, &insn, now, pending.data(),
+            pending.size());
     }
 
+    /** Cycles until the result of a just-accepted instruction is ready */
     uint64_t
-    latency(const vcix_insn &insn, uint64_t now) const
+    latency(const vcix_insn &insn, uint64_t now,
+        const std::vector<vcix_pending> &pending) const
     {
-        return model->latency(model->self, &insn, now);
+        return model->latency(model->self, &insn, now, pending.data(),
+            pending.size());
     }
 
     /** The instruction committed: the only call that changes the model */

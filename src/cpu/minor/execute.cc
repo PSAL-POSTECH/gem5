@@ -132,13 +132,18 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
     unsigned int total_slots = 0;
 
     /* Make FUPipelines for each MinorFU */
+    vcixInFlight.resize(numFuncUnits);
+
     for (unsigned int i = 0; i < numFuncUnits; i++) {
         std::ostringstream fu_name;
         MinorFU *fu_description = fuDescriptions.funcUnits[i];
 
         /* A unit that names a VCIX accelerator model loads and configures
          *  it now, so a bad path or description fails before simulation */
-        if (!fu_description->vcixModel.empty()) {
+        if (fu_description->opClasses->provides(VcixAccelOp)) {
+            fatal_if(fu_description->vcixModel.empty(),
+                "%s: functional unit %d takes VcixAccel instructions but"
+                " names no vcixModel", name_, i);
             VcixAccelModel::load(fu_description->vcixModel).configure(
                 fu_description->vcixConfigKeys,
                 fu_description->vcixConfigValues);
@@ -579,6 +584,20 @@ Execute::vcixOwner(uint32_t bits)
     return nullptr;
 }
 
+std::vector<vcix_pending>
+Execute::vcixPending(unsigned int fu_index) const
+{
+    std::vector<vcix_pending> pending;
+
+    for (const VcixInFlight &entry : vcixInFlight[fu_index]) {
+        const InstId &id = entry.inst->id;
+
+        if (id.streamSeqNum == executeInfo[id.threadId].streamSeqNum)
+            pending.push_back(entry.pending);
+    }
+    return pending;
+}
+
 unsigned int
 Execute::issue(ThreadID thread_id)
 {
@@ -713,6 +732,65 @@ Execute::issue(ThreadID thread_id)
                     {
                         DPRINTF(MinorExecute, "Can't issue inst: %s yet\n",
                             *inst);
+                    } else if (!inst->isFault() &&
+                        inst->staticInst->opClass() == VcixAccelOp)
+                    {
+                        /* A VCIX accelerator instruction is the model's to
+                         *  accept. Accepted, it occupies no functional unit:
+                         *  it waits in inFlightInsts until the cycle the
+                         *  model said its result is ready, so how many are
+                         *  in flight is the model's decision. One no model
+                         *  owns goes through unasked and is an illegal
+                         *  instruction at commit */
+                        VcixAccelModel &accel = VcixAccelModel::load(
+                            fu->description.vcixModel);
+                        const vcix_insn vcix = vcixInsn(*inst->staticInst);
+                        const Cycles now = cpu.curCycle();
+                        const bool owned = accel.owns(vcix.bits);
+                        const std::vector<vcix_pending> pending =
+                            vcixPending(fu_index);
+
+                        if (!owned && vcixOwner(vcix.bits)) {
+                            DPRINTF(MinorExecute, "Can't issue inst: %s to"
+                                " FU: %d, another unit's model owns it\n",
+                                *inst, fu_index);
+                        } else if (owned &&
+                            !accel.canAccept(vcix, now, pending))
+                        {
+                            DPRINTF(MinorExecute, "Can't issue inst: %s,"
+                                " the accelerator model is not accepting"
+                                " it\n", *inst);
+                        } else {
+                            const Cycles lat(owned ?
+                                accel.latency(vcix, now, pending) : 0);
+
+                            DPRINTF(MinorExecute, "Issuing inst: %s to the"
+                                " accelerator model of FU %d, ready in %d"
+                                " cycles\n", *inst, fu_index, lat);
+                            cpu.executeStats[thread_id]->numVecAluAccesses++;
+
+                            cpu.activityRecorder->activity();
+
+                            scoreboard[thread_id].markupInstDests(inst,
+                                now + lat, cpu.getContext(thread_id), false);
+
+                            inst->vcixFUIndex = fu_index;
+                            inst->fuIndex = noCostFUIndex;
+                            inst->extraCommitDelay = Cycles(0);
+                            inst->extraCommitDelayExpr = NULL;
+                            inst->minimumCommitCycle = now + lat;
+
+                            vcixInFlight[fu_index].push_back(
+                                {inst, {vcix, now, now + lat}});
+
+                            QueuedInst fu_inst(inst);
+                            thread.inFlightInsts->push(fu_inst);
+
+                            /* As for a no-cost instruction: no unit was
+                             *  used, so issue can go on this cycle */
+                            fu_index = noCostFUIndex;
+                            issued = true;
+                        }
                     } else {
                         /* Can insert the instruction into this FU */
                         DPRINTF(MinorExecute, "Issuing inst: %s"
@@ -744,35 +822,6 @@ Execute::issue(ThreadID thread_id)
                                 timing->extraCommitLatExpr;
                             extra_assumed_lat =
                                 timing->extraAssumedLat;
-                        }
-
-                        if (!inst->isFault() &&
-                            inst->staticInst->opClass() == VcixAccelOp)
-                        {
-                            VcixAccelModel &accel = VcixAccelModel::load(
-                                fu->description.vcixModel);
-                            const vcix_insn vcix = vcixInsn(*inst->staticInst);
-                            const uint32_t bits = vcix.bits;
-                            uint64_t now = cpu.curCycle();
-
-                            /* An instruction no model owns passes through
-                             *  unasked; commit makes it an illegal
-                             *  instruction */
-                            if (accel.owns(bits)) {
-                                if (!accel.canAccept(vcix, now)) {
-                                    fu_index++;
-                                    continue;
-                                }
-                                Cycles lat(accel.latency(vcix, now));
-                                if (lat > fu->description.opLat) {
-                                    extra_dest_retire_lat =
-                                        lat - fu->description.opLat;
-                                }
-                            } else if (vcixOwner(bits)) {
-                                /* Another unit's model owns it */
-                                fu_index++;
-                                continue;
-                            }
                         }
 
                         issued_mem_ref = inst->isMemRef();
@@ -1108,18 +1157,23 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
         DPRINTF(MinorExecute, "Committing inst: %s\n", *inst);
 
         if (inst->staticInst->opClass() == VcixAccelOp) {
-            /* The model's timing state changes here, once per committed
-             *  instruction; an instruction no model owns is illegal */
+            /* The model's timing state changes here, once per instruction
+             *  that commits without a fault; an instruction its unit's
+             *  model does not own is illegal */
             const auto &rv_inst = static_cast<
                 const RiscvISA::RiscvStaticInst &>(*inst->staticInst);
-            VcixAccelModel *accel = vcixOwner(rv_inst.machInst.instBits);
+            VcixAccelModel &accel = VcixAccelModel::load(
+                funcUnits[inst->vcixFUIndex]->description.vcixModel);
 
-            if (accel) {
-                accel->commit(vcixInsn(*inst->staticInst), cpu.curCycle());
-                fault = inst->staticInst->execute(&context, inst->traceData);
-            } else {
+            if (!accel.owns(rv_inst.machInst.instBits)) {
                 fault = std::make_shared<RiscvISA::IllegalInstFault>(
                     "no VCIX accelerator model owns it", rv_inst.machInst);
+            } else {
+                fault = inst->staticInst->execute(&context, inst->traceData);
+                if (fault == NoFault) {
+                    accel.commit(vcixInsn(*inst->staticInst),
+                        cpu.curCycle());
+                }
             }
         } else {
             fault = inst->staticInst->execute(&context,
@@ -1350,7 +1404,7 @@ Execute::commit(ThreadID thread_id, bool only_commit_microops, bool discard,
             }
 
             /* Try and commit FU-less insts */
-            if (!completed_inst && inst->isNoCostInst()) {
+            if (!completed_inst && inst->fuIndex == noCostFUIndex) {
                 DPRINTF(MinorExecute, "Committing no cost inst: %s", *inst);
 
                 try_to_commit = true;
@@ -1521,6 +1575,22 @@ Execute::commit(ThreadID thread_id, bool only_commit_microops, bool discard,
             /* Finished with the inst, remove it from the inst queue and
              *  clear its dependencies */
             ex_info.inFlightInsts->pop();
+
+            /* Committed or discarded, it is no longer in flight for its
+             *  accelerator model */
+            if (!inst->isFault() &&
+                inst->staticInst->opClass() == VcixAccelOp)
+            {
+                auto &in_flight = vcixInFlight[inst->vcixFUIndex];
+
+                for (auto it = in_flight.begin(); it != in_flight.end(); ++it)
+                {
+                    if (it->inst == inst) {
+                        in_flight.erase(it);
+                        break;
+                    }
+                }
+            }
 
             /* Complete barriers in the LSQ/move to store buffer */
             if (inst->isInst() && inst->staticInst->isFullMemBarrier()) {
@@ -1713,7 +1783,7 @@ Execute::evaluate()
         if (!info.inFlightInsts->empty()) {
             const QueuedInst &head_inst = info.inFlightInsts->front();
 
-            if (head_inst.inst->isNoCostInst()) {
+            if (head_inst.inst->fuIndex == noCostFUIndex) {
                 head_inst_might_commit = true;
             } else {
                 FUPipeline *fu = funcUnits[head_inst.inst->fuIndex];

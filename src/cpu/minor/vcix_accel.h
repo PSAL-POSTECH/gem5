@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-#define VCIX_ACCEL_ABI_VERSION 4u
+#define VCIX_ACCEL_ABI_VERSION 5u
 
 typedef uint64_t vcix_cycle_t;
 
@@ -30,6 +30,15 @@ typedef struct vcix_insn {
   uint32_t sew_bits;
   int32_t lmul_log2; /* LMUL = 2^lmul_log2, from -3 to 3 */
 } vcix_insn;
+
+/* An instruction the timing simulator has issued to this model and not yet
+ * committed. The simulator keeps the list, oldest first, and drops an entry
+ * when the instruction commits or is squashed. */
+typedef struct vcix_pending {
+  vcix_insn insn;
+  vcix_cycle_t issued; /* the cycle it was issued */
+  vcix_cycle_t ready;  /* issued + the latency the model answered */
+} vcix_pending;
 
 /* The machine description, as the adapter read it: the value of a top-level
  * key as written in the file, or NULL when the file has no such key. The
@@ -73,13 +82,18 @@ typedef struct vcix_model {
   /* Timing face. Called by the timing simulator only; it sees no data.
    * can_accept and latency are asked when the instruction is issued and must
    * not change state: an issued instruction may be squashed and issued again.
-   * commit is called once, when the instruction commits, and is where the
-   * timing state changes. tick may be NULL. vl, SEW and LMUL arrive with the
+   * They are given the instructions already issued and not yet committed, so
+   * the answer can account for what is in flight; an accepted instruction
+   * does not hold the unit, and how many may be in flight is the model's to
+   * decide. latency is asked only of an instruction can_accept just accepted.
+   * commit is called once, when the instruction commits without a fault, and
+   * is where the timing state changes. vl, SEW and LMUL arrive with the
    * instruction, so latency can depend on how much data it moves. */
-  int (*can_accept)(void *self, const vcix_insn *insn, vcix_cycle_t now);
-  vcix_cycle_t (*latency)(void *self, const vcix_insn *insn, vcix_cycle_t now);
+  int (*can_accept)(void *self, const vcix_insn *insn, vcix_cycle_t now, const vcix_pending *pending,
+                    size_t num_pending);
+  vcix_cycle_t (*latency)(void *self, const vcix_insn *insn, vcix_cycle_t now, const vcix_pending *pending,
+                          size_t num_pending);
   void (*commit)(void *self, const vcix_insn *insn, vcix_cycle_t now);
-  void (*tick)(void *self, vcix_cycle_t now);
 
   void (*reset)(void *self);
 } vcix_model;

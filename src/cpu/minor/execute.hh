@@ -271,6 +271,22 @@ class Execute : public Named
      *  instruction bits; nullptr if none does */
     VcixAccelModel *vcixOwner(uint32_t bits);
 
+    /** An instruction issued to a VCIX accelerator model and still in
+     *  flight */
+    struct VcixInFlight
+    {
+        MinorDynInstPtr inst;
+        vcix_pending pending;
+    };
+
+    /** Per functional unit, the instructions issued to its model and not
+     *  yet committed or discarded, oldest first */
+    std::vector<std::vector<VcixInFlight>> vcixInFlight;
+
+    /** The in-flight instructions of a unit as its model is told them:
+     *  those on a stream that has been abandoned are left out */
+    std::vector<vcix_pending> vcixPending(unsigned int fu_index) const;
+
     /** Try to act on PC-related events.  Returns true if any were
      *  executed */
     bool tryPCEvents(ThreadID thread_id);
