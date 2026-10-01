@@ -101,6 +101,15 @@ class NoncoherentXBar(BaseXBar):
     cxx_class = "gem5::NoncoherentXBar"
 
 
+class SpmXBar(NoncoherentXBar):
+    # A bus in front of on-chip scratchpad memory: it adds no latency.
+    width = 32
+
+    frontend_latency = 0
+    forward_latency = 0
+    response_latency = 0
+
+
 class CoherentXBar(BaseXBar):
     type = "CoherentXBar"
     cxx_header = "mem/coherent_xbar.hh"
