@@ -2064,6 +2064,8 @@ decode QUADRANT default Unknown::unknown() {
             }
         }
 
+        0x0a: AccelCustom1Op::custom1();
+
         0x0b: decode FUNCT3 {
             0x2: decode AMOFUNCT {
                 0x2: LoadReserved::lr_w({{

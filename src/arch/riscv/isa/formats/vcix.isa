@@ -2,8 +2,13 @@
 
 ////////////////////////////////////////////////////////////////////
 //
-// VCIX instructions: one class for the whole custom-2 opcode
+// Instructions whose timing a loaded accelerator model answers: one class
+// for the whole custom-2 opcode (VCIX), one for the whole custom-1 opcode
 //
 def format VcixOp() {{
     decode_block = "return new Vcix(machInst);\n"
+}};
+
+def format AccelCustom1Op() {{
+    decode_block = "return new AccelCustom1(machInst);\n"
 }};

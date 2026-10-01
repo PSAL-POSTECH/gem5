@@ -134,6 +134,48 @@ class Vcix : public RiscvStaticInst
     }
 };
 
+/* An instruction in the custom-1 opcode, which has no operand rule of its
+ * own: taken to be R-type on integer registers, reading x[rs1] and x[rs2].
+ * Like Vcix it computes nothing and its timing is asked of a loaded model. */
+class AccelCustom1 : public RiscvStaticInst
+{
+  private:
+    RegId srcRegIdxArr[2];
+    RegId destRegIdxArr[1];
+
+  public:
+    AccelCustom1(ExtMachInst _machInst)
+        : RiscvStaticInst("custom1", _machInst, VcixAccelOp)
+    {
+        setRegIdxArrays(
+            reinterpret_cast<RegIdArrayPtr>(
+                &std::remove_pointer_t<decltype(this)>::srcRegIdxArr),
+            reinterpret_cast<RegIdArrayPtr>(
+                &std::remove_pointer_t<decltype(this)>::destRegIdxArr));
+
+        const uint32_t bits = _machInst.instBits;
+
+        _numSrcRegs = 0;
+        _numDestRegs = 0;
+        setSrcRegIdx(_numSrcRegs++, intRegClass[(bits >> 15) & 0x1f]);
+        setSrcRegIdx(_numSrcRegs++, intRegClass[(bits >> 20) & 0x1f]);
+    }
+
+    Fault
+    execute(ExecContext *, trace::InstRecord *) const override
+    {
+        return NoFault;
+    }
+
+    std::string
+    generateDisassembly(
+            Addr pc, const loader::SymbolTable *symtab) const override
+    {
+        return csprintf("custom1 %#010x <- %s,%s", machInst.instBits,
+            registerName(srcRegIdx(0)), registerName(srcRegIdx(1)));
+    }
+};
+
 } // namespace RiscvISA
 } // namespace gem5
 
