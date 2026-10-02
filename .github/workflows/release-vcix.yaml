@@ -1,0 +1,61 @@
+name: Release gem5 for vcix-accelerator
+
+# A vcix-v* tag builds build/RISCV/gem5.opt in the system packages of the vcix-accelerator image and
+# publishes it, with configs/, as the release of that tag.
+
+on:
+  push:
+    tags:
+      - 'vcix-v*'
+
+permissions:
+  contents: write
+
+env:
+  SETUP_URL: https://raw.githubusercontent.com/PSAL-POSTECH/vcix-accelerator/main/setup
+  SCONS_VERSION: 4.7.0
+  ASSET: gem5-vcix-x86_64.tar.gz
+
+jobs:
+  release:
+    runs-on: [self-hosted, slurm, big, x86_64]
+    timeout-minutes: 110
+    container:
+      image: ubuntu:22.04
+
+    steps:
+      - name: Install git
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git curl ca-certificates
+
+      - uses: actions/checkout@v4
+
+      - name: Install the system packages of the vcix-accelerator image
+        run: |
+          mkdir /tmp/setup
+          curl -fsSL --retry 3 -o /tmp/setup/versions.env "$SETUP_URL/versions.env"
+          curl -fsSL --retry 3 -o /tmp/setup/system.sh "$SETUP_URL/system.sh"
+          bash /tmp/setup/system.sh
+
+      - name: Build gem5.opt
+        run: |
+          . /tmp/setup/versions.env
+          "$PYTHON" -m venv /tmp/scons
+          /tmp/scons/bin/pip install -q "scons==$SCONS_VERSION"
+          PYTHON_CONFIG="$PYTHON-config" /tmp/scons/bin/scons build/RISCV/gem5.opt -j"$(nproc)" --ignore-style
+
+      - name: Package
+        run: |
+          strip --strip-debug build/RISCV/gem5.opt
+          build/RISCV/gem5.opt --version
+          tar -czf "$ASSET" build/RISCV/gem5.opt configs
+          sha256sum "$ASSET" | tee "$ASSET.sha256"
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: gem5 for vcix-accelerator ${{ github.ref_name }}
+          files: |
+            ${{ env.ASSET }}
+            ${{ env.ASSET }}.sha256
