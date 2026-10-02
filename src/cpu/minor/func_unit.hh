@@ -174,17 +174,14 @@ class MinorFU : public SimObject
     /** Extra timing info to give timings to individual ops */
     std::vector<MinorFUTiming *> timings;
 
-    /** Shared library of the VCIX accelerator model this unit asks; empty
-     *  for every other unit */
+    /** Shared library of the VCIX accelerator model this unit asks */
     std::string vcixModel;
 
-    /** The machine description that model is configured from, as parallel
-     *  keys and values */
+    /** The machine description of that model, as parallel keys and values */
     std::vector<std::string> vcixConfigKeys;
     std::vector<std::string> vcixConfigValues;
 
-    /** The most instructions the unit has in flight for its model: at that
-     *  many, none is issued to it and the model is not asked */
+    /** The most instructions the unit has in flight for its model */
     unsigned int vcixMaxInFlight;
 
   public:

@@ -231,8 +231,7 @@ class MinorDynInst : public RefCounted
      *  to account for delay in absolute time */
     Cycles minimumCommitCycle{0};
 
-    /** For a VCIX accelerator instruction, the functional unit whose model
-     *  it was issued to. It occupies no unit: fuIndex is the no-cost index */
+    /** The functional unit whose VCIX accelerator model it was issued to */
     unsigned int vcixFUIndex = 0;
 
     /** Flat register indices so that, when clearing the scoreboard, we

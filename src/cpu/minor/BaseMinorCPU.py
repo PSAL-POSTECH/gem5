@@ -296,9 +296,7 @@ class MinorDefaultMiscFU(MinorFU):
 
 
 class MinorVcixAccelFU(MinorFU):
-    # Every instruction a VCIX accelerator model owns; set vcixModel to its
-    # shared library. Stall and latency come from the model, not from here;
-    # vcixMaxInFlight bounds how many instructions it can overlap.
+    # Stall and latency come from the model named by vcixModel, not from here.
     opClasses = minorMakeOpClassSet(["VcixAccel"])
     opLat = 1
     issueLat = 1
