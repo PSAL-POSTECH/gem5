@@ -234,6 +234,9 @@ class MinorDynInst : public RefCounted
     /** The functional unit whose VCIX accelerator model it was issued to */
     unsigned int vcixFUIndex = 0;
 
+    /** The id the VCIX accelerator model knows this instruction by */
+    uint64_t vcixId = 0;
+
     /** Flat register indices so that, when clearing the scoreboard, we
      *  have the same register indices as when the instruction was marked
      *  up */

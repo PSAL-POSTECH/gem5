@@ -10,9 +10,11 @@
 extern "C" {
 #endif
 
-#define VCIX_ACCEL_ABI_VERSION 6u
+#define VCIX_ACCEL_ABI_VERSION 8u
 
 typedef uint64_t vcix_cycle_t;
+/* Names an issued instruction; later instructions have larger ids. */
+typedef uint64_t vcix_id_t;
 
 /* The model owns an instruction when (bits & mask) == match. `name` is never NULL. */
 typedef struct vcix_encoding {
@@ -28,13 +30,6 @@ typedef struct vcix_insn {
   uint32_t sew_bits;
   int32_t lmul_log2; /* LMUL = 2^lmul_log2, from -3 to 3 */
 } vcix_insn;
-
-/* An instruction issued to this instance and not yet committed. The list is oldest first. */
-typedef struct vcix_pending {
-  vcix_insn insn;
-  vcix_cycle_t issued; /* the cycle it was issued */
-  vcix_cycle_t ready;  /* issued + the latency the model answered */
-} vcix_pending;
 
 /* get(key) is the text of a top-level scalar as written, or NULL when the key is missing or its
  * value is YAML null, a mapping or a sequence. Valid, with its strings, only until create returns. */
@@ -59,7 +54,7 @@ typedef struct vcix_host {
 } vcix_host;
 
 /* Valid, with its strings, while the library is loaded. Read abi_version first, and nothing else
- * if it differs. Only `reset` may be NULL, and `encodings` when num_encodings is 0. */
+ * if it differs. Only `tick` and `reset` may be NULL, and `encodings` when num_encodings is 0. */
 typedef struct vcix_model {
   uint32_t abi_version;
   const char *name;
@@ -74,13 +69,20 @@ typedef struct vcix_model {
   /* Called by the functional simulator only. */
   void (*execute)(void *self, const vcix_host *host, const vcix_insn *insn);
 
-  /* Called by the timing simulator only. can_accept and latency must not change state. commit is
-   * called once, when the instruction commits without a fault. */
-  int (*can_accept)(void *self, const vcix_insn *insn, vcix_cycle_t now, const vcix_pending *pending,
-                    size_t num_pending);
-  vcix_cycle_t (*latency)(void *self, const vcix_insn *insn, vcix_cycle_t now, const vcix_pending *pending,
-                          size_t num_pending);
-  void (*commit)(void *self, const vcix_insn *insn, vcix_cycle_t now);
+  /* Called by the timing simulator only, in cycle order; within a cycle tick comes first, then
+   * commit and squash, then can_accept and issue. Every issued instruction gets one commit or is
+   * squashed. can_accept must not change state. */
+  int (*can_accept)(void *self, const vcix_insn *insn, vcix_cycle_t now);
+  /* The instruction enters, after can_accept said so in this cycle. Returns the cycles until its
+   * result is ready. */
+  vcix_cycle_t (*issue)(void *self, const vcix_insn *insn, vcix_id_t id, vcix_cycle_t now);
+  /* Every issued instruction from `first` on is taken back: the state must be what it would be had
+   * they never been issued. */
+  void (*squash)(void *self, vcix_id_t first, vcix_cycle_t now);
+  /* The oldest issued instruction can no longer be squashed. */
+  void (*commit)(void *self, const vcix_insn *insn, vcix_id_t id, vcix_cycle_t now);
+  /* Once in every cycle the processor runs, whether or not an instruction is in flight. May be NULL. */
+  void (*tick)(void *self, vcix_cycle_t now);
 
   /* Back to the state create left. May be NULL. */
   void (*reset)(void *self);

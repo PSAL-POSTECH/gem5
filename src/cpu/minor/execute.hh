@@ -46,6 +46,7 @@
 #define __CPU_MINOR_EXECUTE_HH__
 
 #include <memory>
+#include <list>
 #include <vector>
 
 #include "base/named.hh"
@@ -274,18 +275,24 @@ class Execute : public Named
     /** The model instance that owns these instruction bits, or nullptr */
     VcixAccelModel *vcixOwner(uint32_t bits);
 
-    /** An instruction issued to a VCIX accelerator model and in flight */
-    struct VcixInFlight
-    {
-        MinorDynInstPtr inst;
-        vcix_pending pending;
-    };
+    /** Tick every model instance, before the cycle's commit and issue */
+    void vcixTick();
 
-    /** Per functional unit, its instructions in flight, oldest first */
-    std::vector<std::vector<VcixInFlight>> vcixInFlight;
+    /** Whether a model instance is ticked every cycle */
+    bool vcixTicks() const;
 
-    /** A unit's in-flight instructions, less those on an abandoned stream */
-    std::vector<vcix_pending> vcixPending(unsigned int fu_index) const;
+    /** Per functional unit, the instructions its model was told were issued
+     *  and has not been told were committed or squashed, oldest first */
+    std::vector<std::list<MinorDynInstPtr>> vcixInFlight;
+
+    /** Per functional unit, its instructions in the inFlightInsts queue */
+    std::vector<unsigned int> vcixQueued;
+
+    /** The id of the next instruction issued to a model */
+    uint64_t vcixNextId = 1;
+
+    /** Tell a unit's model that all it has in flight is squashed */
+    void vcixSquash(unsigned int fu_index);
 
     /** Try to act on PC-related events.  Returns true if any were
      *  executed */
