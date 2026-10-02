@@ -11,6 +11,7 @@
 
 #include "arch/riscv/faults.hh"
 #include "arch/riscv/insts/static_inst.hh"
+#include "arch/riscv/isa.hh"
 #include "arch/riscv/regs/float.hh"
 #include "arch/riscv/regs/int.hh"
 #include "arch/riscv/regs/misc.hh"
@@ -104,20 +105,18 @@ class Vcix : public RiscvStaticInst
         flags[IsVector] = true;
     }
 
+    /* The checks gem5's own vector and floating-point instructions make,
+     * through the same helpers: a form that reads f[rs1] needs FS on, every
+     * form needs VS on and a legal vtype, and writing vd leaves VS dirty. */
     Fault
     execute(ExecContext *xc, trace::InstRecord *) const override
     {
-        MISA misa = xc->readMiscReg(MISCREG_ISA);
-        STATUS status = xc->readMiscReg(MISCREG_STATUS);
-
-        if (!misa.rvv || status.vs == VPUStatus::OFF) {
-            return std::make_shared<IllegalInstFault>(
-                "RVV is disabled or VPU is off", machInst);
+        if (((machInst.instBits >> 12) & 0x7) == Float) {
+            Fault fault = updateFPUStatus(xc, machInst, false);
+            if (fault != NoFault)
+                return fault;
         }
-        if (machInst.vill)
-            return std::make_shared<IllegalInstFault>("VILL is set", machInst);
-
-        return NoFault;
+        return updateVPUStatus(xc, machInst, _numDestRegs > 0, true);
     }
 
     std::string
