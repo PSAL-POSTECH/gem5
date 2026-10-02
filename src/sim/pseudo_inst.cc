@@ -318,8 +318,8 @@ resetstats(ThreadContext *tc, Tick delay, Tick period)
         return;
 
 
-    Tick when = curTick() + delay * sim_clock::as_int::ns;
-    Tick repeat = period * sim_clock::as_int::ns;
+    Tick when = curTick();
+    Tick repeat = 0;
 
     statistics::schedStatEvent(false, true, when, repeat);
 }
@@ -332,8 +332,8 @@ dumpstats(ThreadContext *tc, Tick delay, Tick period)
         return;
 
 
-    Tick when = curTick() + delay * sim_clock::as_int::ns;
-    Tick repeat = period * sim_clock::as_int::ns;
+    Tick when = curTick();
+    Tick repeat = 0;
 
     statistics::schedStatEvent(true, false, when, repeat);
 }
