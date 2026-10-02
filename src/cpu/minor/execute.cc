@@ -612,6 +612,45 @@ Execute::vcixTicks() const
 }
 
 void
+Execute::vcixRelease()
+{
+    const Cycles now = cpu.curCycle();
+
+    for (unsigned int i = 0; i < numFuncUnits; i++) {
+        const unsigned int warn_cycles =
+            funcUnits[i]->description.vcixReadyWarnCycles;
+
+        for (const MinorDynInstPtr &inst : vcixInFlight[i]) {
+            if (!inst->vcixResultPending)
+                continue;
+
+            if (vcixModels[i]->ready(inst->vcixId, now)) {
+                scoreboard[inst->id.threadId].markInstDestsPredictable(inst);
+                inst->vcixResultPending = false;
+            } else if (warn_cycles != 0 && !inst->vcixReadyWarned &&
+                now - inst->minimumCommitCycle >= warn_cycles)
+            {
+                warn("%s: its accelerator model has not said its result is"
+                    " ready %d cycles after its issue\n", *inst, warn_cycles);
+                inst->vcixReadyWarned = true;
+            }
+        }
+    }
+}
+
+bool
+Execute::vcixResultsPending() const
+{
+    for (const std::list<MinorDynInstPtr> &in_flight : vcixInFlight) {
+        for (const MinorDynInstPtr &inst : in_flight) {
+            if (inst->vcixResultPending)
+                return true;
+        }
+    }
+    return false;
+}
+
+void
 Execute::vcixSquash(unsigned int fu_index)
 {
     std::list<MinorDynInstPtr> &in_flight = vcixInFlight[fu_index];
@@ -785,8 +824,19 @@ Execute::issue(ThreadID thread_id)
 
                             if (owned) {
                                 inst->vcixId = vcixNextId++;
-                                lat = Cycles(accel.issue(vcix, inst->vcixId,
-                                    now));
+
+                                const uint64_t answer = accel.issue(vcix,
+                                    inst->vcixId, now);
+
+                                if (answer == VCIX_LATENCY_UNKNOWN) {
+                                    fatal_if(!accel.answersReady(), "%s: its"
+                                        " model's issue returned"
+                                        " VCIX_LATENCY_UNKNOWN and its table"
+                                        " has no ready", *inst);
+                                    inst->vcixResultPending = true;
+                                } else {
+                                    lat = Cycles(answer);
+                                }
                                 vcixInFlight[fu_index].push_back(inst);
                             }
                             vcixQueued[fu_index]++;
@@ -802,7 +852,9 @@ Execute::issue(ThreadID thread_id)
                             inst->fuIndex = noCostFUIndex;
 
                             scoreboard[thread_id].markupInstDests(inst,
-                                now + lat, cpu.getContext(thread_id), false);
+                                now + lat, cpu.getContext(thread_id),
+                                inst->vcixResultPending);
+
                             inst->extraCommitDelay = Cycles(0);
                             inst->extraCommitDelayExpr = NULL;
                             inst->minimumCommitCycle = now + lat;
@@ -1517,6 +1569,11 @@ Execute::commit(ThreadID thread_id, bool only_commit_microops, bool discard,
                             " as there are incomplete barriers in flight\n",
                             *inst);
                         completed_inst = false;
+                    } else if (inst->vcixResultPending) {
+                        DPRINTF(MinorExecute, "Not committing inst: %s yet"
+                            " as its accelerator model has not said its"
+                            " result is ready\n", *inst);
+                        completed_inst = false;
                     } else if (inst->minimumCommitCycle > now) {
                         DPRINTF(MinorExecute, "Not committing inst: %s yet"
                             " as it wants to be stalled for %d more cycles\n",
@@ -1615,7 +1672,8 @@ Execute::commit(ThreadID thread_id, bool only_commit_microops, bool discard,
                 lsq.completeMemBarrierInst(inst, committed_inst);
             }
 
-            scoreboard[thread_id].clearInstDests(inst, inst->isMemRef());
+            scoreboard[thread_id].clearInstDests(inst,
+                inst->isMemRef() || inst->vcixResultPending);
         }
 
         /* Handle per-cycle instruction counting */
@@ -1672,6 +1730,7 @@ Execute::evaluate()
     unsigned int num_issued = 0;
 
     vcixTick();
+    vcixRelease();
 
     /* Do all the cycle-wise activities for dcachePort here to potentially
      *  free up input spaces in the LSQ's requests queue */
@@ -1841,7 +1900,7 @@ Execute::evaluate()
     if (need_to_tick)
         cpu.wakeupOnEvent(Pipeline::ExecuteStageId);
 
-    if (vcixTicks())
+    if (vcixTicks() || vcixResultsPending())
         cpu.wakeupOnEvent(Pipeline::ExecuteStageId);
 
     /* Note activity of following buffer */

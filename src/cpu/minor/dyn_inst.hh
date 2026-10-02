@@ -237,6 +237,12 @@ class MinorDynInst : public RefCounted
     /** The id the VCIX accelerator model knows this instruction by */
     uint64_t vcixId = 0;
 
+    /** The model has not yet said the result of this instruction is ready */
+    bool vcixResultPending = false;
+
+    /** The wait for that has been warned about */
+    bool vcixReadyWarned = false;
+
     /** Flat register indices so that, when clearing the scoreboard, we
      *  have the same register indices as when the instruction was marked
      *  up */

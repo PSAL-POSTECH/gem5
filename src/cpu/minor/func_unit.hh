@@ -184,6 +184,9 @@ class MinorFU : public SimObject
     /** The most instructions the unit has in flight for its model */
     unsigned int vcixMaxInFlight;
 
+    /** Cycles an instruction waits for its model's ready before a warning */
+    unsigned int vcixReadyWarnCycles;
+
   public:
     MinorFU(const MinorFUParams &params) :
         SimObject(params),
@@ -195,7 +198,8 @@ class MinorFU : public SimObject
         vcixModel(params.vcixModel),
         vcixConfigKeys(params.vcixConfigKeys),
         vcixConfigValues(params.vcixConfigValues),
-        vcixMaxInFlight(params.vcixMaxInFlight)
+        vcixMaxInFlight(params.vcixMaxInFlight),
+        vcixReadyWarnCycles(params.vcixReadyWarnCycles)
     { }
 };
 

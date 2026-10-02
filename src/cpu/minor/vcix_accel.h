@@ -10,11 +10,13 @@
 extern "C" {
 #endif
 
-#define VCIX_ACCEL_ABI_VERSION 8u
+#define VCIX_ACCEL_ABI_VERSION 9u
 
 typedef uint64_t vcix_cycle_t;
 /* Names an issued instruction; later instructions have larger ids. */
 typedef uint64_t vcix_id_t;
+/* What issue returns when the cycle the result is ready is not known yet. */
+#define VCIX_LATENCY_UNKNOWN UINT64_MAX
 
 /* The model owns an instruction when (bits & mask) == match. `name` is never NULL. */
 typedef struct vcix_encoding {
@@ -54,7 +56,7 @@ typedef struct vcix_host {
 } vcix_host;
 
 /* Valid, with its strings, while the library is loaded. Read abi_version first, and nothing else
- * if it differs. Only `tick` and `reset` may be NULL, and `encodings` when num_encodings is 0. */
+ * if it differs. Only `tick`, `ready` and `reset` may be NULL, and `encodings` when num_encodings is 0. */
 typedef struct vcix_model {
   uint32_t abi_version;
   const char *name;
@@ -70,11 +72,11 @@ typedef struct vcix_model {
   void (*execute)(void *self, const vcix_host *host, const vcix_insn *insn);
 
   /* Called by the timing simulator only, in cycle order; within a cycle tick comes first, then
-   * commit and squash, then can_accept and issue. Every issued instruction gets one commit or is
+   * ready, then commit and squash, then can_accept and issue. Every issued instruction gets one commit or is
    * squashed. can_accept must not change state. */
   int (*can_accept)(void *self, const vcix_insn *insn, vcix_cycle_t now);
   /* The instruction enters, after can_accept said so in this cycle. Returns the cycles until its
-   * result is ready. */
+   * result is ready, or VCIX_LATENCY_UNKNOWN. */
   vcix_cycle_t (*issue)(void *self, const vcix_insn *insn, vcix_id_t id, vcix_cycle_t now);
   /* Every issued instruction from `first` on is taken back: the state must be what it would be had
    * they never been issued. */
@@ -83,6 +85,9 @@ typedef struct vcix_model {
   void (*commit)(void *self, const vcix_insn *insn, vcix_id_t id, vcix_cycle_t now);
   /* Once in every cycle the processor runs, whether or not an instruction is in flight. May be NULL. */
   void (*tick)(void *self, vcix_cycle_t now);
+  /* Whether the result of an instruction issued with VCIX_LATENCY_UNKNOWN is ready. Asked in every
+   * later cycle until it is, and never again. May be NULL in a table whose issue never returns that. */
+  int (*ready)(void *self, vcix_id_t id, vcix_cycle_t now);
 
   /* Back to the state create left. May be NULL. */
   void (*reset)(void *self);
