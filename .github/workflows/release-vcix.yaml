@@ -24,8 +24,10 @@ jobs:
       image: ubuntu:22.04
 
     steps:
+      # The runner's containers map one uid, so apt cannot switch to its sandbox user.
       - name: Install git
         run: |
+          echo 'APT::Sandbox::User "root";' > /etc/apt/apt.conf.d/99-no-sandbox
           apt-get update
           apt-get install -y --no-install-recommends git curl ca-certificates
 
@@ -48,7 +50,8 @@ jobs:
       - name: Package
         run: |
           strip --strip-debug build/RISCV/gem5.opt
-          build/RISCV/gem5.opt --version
+          build/RISCV/gem5.opt --build-info > build-info.txt
+          head -n 4 build-info.txt
           tar -czf "$ASSET" build/RISCV/gem5.opt configs
           sha256sum "$ASSET" | tee "$ASSET.sha256"
 
