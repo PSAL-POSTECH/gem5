@@ -31,9 +31,12 @@ VcixAccelModel::load(const std::string &path)
     fatal_if(!entry, "%s does not export vcix_accel_model", path);
 
     const vcix_model *model = entry();
+    fatal_if(!model, "%s: vcix_accel_model() returned no table", path);
     fatal_if(model->abi_version != VCIX_ACCEL_ABI_VERSION,
         "%s has ABI %u, gem5 has %u", path, model->abi_version,
         VCIX_ACCEL_ABI_VERSION);
+    fatal_if(!model->can_accept || !model->latency || !model->commit,
+        "%s: the table leaves a timing-face function NULL", path);
 
     return loaded.emplace(path, VcixAccelModel(model)).first->second;
 }
@@ -60,7 +63,8 @@ VcixAccelModel::configure(const std::vector<std::string> &keys,
             auto found = map.find(key);
             return found == map.end() ? nullptr : found->second.c_str();
         }};
-    model->configure(model->self, &config);
+    if (model->configure)
+        model->configure(model->self, &config);
 
     if (model->reset)
         model->reset(model->self);
