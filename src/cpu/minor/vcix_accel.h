@@ -14,7 +14,8 @@ extern "C" {
 
 typedef uint64_t vcix_cycle_t;
 
-/* An instruction belongs to the model when (bits & mask) == match. */
+/* An instruction belongs to the model when (bits & mask) == match. `name` is
+ * what a disassembler prints for it; never NULL. */
 typedef struct vcix_encoding {
   uint32_t match;
   uint32_t mask;
@@ -40,9 +41,11 @@ typedef struct vcix_pending {
   vcix_cycle_t ready;  /* issued + the latency the model answered */
 } vcix_pending;
 
-/* The machine description, as the adapter read it: the value of a top-level
- * key as written in the file, or NULL when the file has no such key. The
- * model does not know the file or its format. */
+/* The machine description as the simulator's side read it (the Spike adapter;
+ * the gem5 config script). get(key) is the text of a top-level scalar as
+ * written, with no typing, or NULL when the key is missing or its value is YAML
+ * null, a mapping or a sequence. Both give the same answer for the same file.
+ * The config and its strings are valid only until configure returns. */
 typedef struct vcix_config {
   void *ctx;
   const char *(*get)(void *ctx, const char *key);
@@ -64,6 +67,10 @@ typedef struct vcix_host {
   void (*mem_write)(void *ctx, uint64_t addr, const void *src, size_t bytes);
 } vcix_host;
 
+/* The table a model library hands over. It and its strings stay valid while
+ * the library is loaded. A caller reads abi_version first, and nothing else if
+ * it differs. `configure` and `reset` may be NULL; `encodings` only when
+ * num_encodings is 0; `name` and the other functions never. */
 typedef struct vcix_model {
   uint32_t abi_version;
   const char *name;
@@ -72,29 +79,26 @@ typedef struct vcix_model {
   const vcix_encoding *encodings;
   size_t num_encodings;
 
-  /* Called once by either simulator, after loading and before anything else.
-   * The config is valid only during the call. */
+  /* Called once, before any other function of this table. `name` and
+   * `encodings` are fixed before it, so they cannot depend on the machine
+   * description. May be NULL. */
   void (*configure)(void *self, const vcix_config *config);
 
   /* Functional face. Called by the functional simulator only. */
   void (*execute)(void *self, const vcix_host *host, const vcix_insn *insn);
 
   /* Timing face. Called by the timing simulator only; it sees no data.
-   * can_accept and latency are asked when the instruction is issued and must
-   * not change state: an issued instruction may be squashed and issued again.
-   * They are given the instructions already issued and not yet committed, so
-   * the answer can account for what is in flight; an accepted instruction
-   * does not hold the unit, and how many may be in flight is the model's to
-   * decide. latency is asked only of an instruction can_accept just accepted.
-   * commit is called once, when the instruction commits without a fault, and
-   * is where the timing state changes. vl, SEW and LMUL arrive with the
-   * instruction, so latency can depend on how much data it moves. */
+   * can_accept and latency are asked at issue, with the instructions in flight
+   * (issued, not yet committed), and must not change state: an issued
+   * instruction may be squashed and issued again. commit is called once, when
+   * the instruction commits without a fault, and is where state changes. */
   int (*can_accept)(void *self, const vcix_insn *insn, vcix_cycle_t now, const vcix_pending *pending,
                     size_t num_pending);
   vcix_cycle_t (*latency)(void *self, const vcix_insn *insn, vcix_cycle_t now, const vcix_pending *pending,
                           size_t num_pending);
   void (*commit)(void *self, const vcix_insn *insn, vcix_cycle_t now);
 
+  /* Back to the state configure left. May be called more than once. May be NULL. */
   void (*reset)(void *self);
 } vcix_model;
 
