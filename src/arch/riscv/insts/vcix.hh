@@ -1,7 +1,5 @@
 /* A VCIX instruction (SiFive Vector Coprocessor Interface, opcode custom-2).
- * gem5 computes nothing for it: the operands are declared so that dependencies
- * are tracked (a vector operand is LMUL registers), and its timing is asked
- * of a loaded accelerator model. */
+ * gem5 computes nothing for it: its timing is asked of a loaded model. */
 
 #ifndef __ARCH_RISCV_INSTS_VCIX_HH__
 #define __ARCH_RISCV_INSTS_VCIX_HH__
@@ -35,9 +33,7 @@ class Vcix : public RiscvStaticInst
     RegId srcRegIdxArr[24];
     RegId destRegIdxArr[8];
 
-    /* funct6[5:2] says which of the vd / vs2 fields are registers: 0000 is
-     * sf.vc[.v].{x,i}, 0010 the two-operand forms, 1010 the three-operand
-     * forms and 1111 their widening variants */
+    /* funct6[5:2] says which of the vd / vs2 fields are registers */
     enum Shape { NoVs2 = 0x0, Vs2 = 0x2, VdVs2 = 0xa, WideVdVs2 = 0xf };
 
     /* funct3 says what the rs1 field is */
@@ -78,8 +74,6 @@ class Vcix : public RiscvStaticInst
         const unsigned rs1 = (bits >> 15) & 0x1f;
         const unsigned vs2 = (bits >> 20) & 0x1f;
 
-        /* vlmul is signed: fractional LMUL still names one register. The
-         * widening forms use a vd group twice as large */
         const unsigned vlmul = _machInst.vtype8.vlmul;
         const unsigned group = vlmul < 4 ? 1u << vlmul : 1;
         const unsigned vd_group =
@@ -105,9 +99,7 @@ class Vcix : public RiscvStaticInst
         flags[IsVector] = true;
     }
 
-    /* The checks gem5's own vector and floating-point instructions make,
-     * through the same helpers: a form that reads f[rs1] needs FS on, every
-     * form needs VS on and a legal vtype, and writing vd leaves VS dirty. */
+    /* The checks gem5's own vector and floating-point instructions make */
     Fault
     execute(ExecContext *xc, trace::InstRecord *) const override
     {
@@ -133,9 +125,7 @@ class Vcix : public RiscvStaticInst
     }
 };
 
-/* An instruction in the custom-1 opcode, which has no operand rule of its
- * own: taken to be R-type on integer registers, reading x[rs1] and x[rs2].
- * Like Vcix it computes nothing and its timing is asked of a loaded model. */
+/* An instruction in the custom-1 opcode: taken to be R-type on x registers */
 class AccelCustom1 : public RiscvStaticInst
 {
   private:

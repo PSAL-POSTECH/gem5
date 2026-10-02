@@ -1,10 +1,6 @@
 // -*- mode:c++ -*-
 
-////////////////////////////////////////////////////////////////////
-//
-// Instructions whose timing a loaded accelerator model answers: one class
-// for the whole custom-2 opcode (VCIX), one for the whole custom-1 opcode
-//
+// Instructions whose timing a loaded accelerator model answers
 def format VcixOp() {{
     decode_block = "return new Vcix(machInst);\n"
 }};

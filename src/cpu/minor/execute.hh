@@ -268,28 +268,23 @@ class Execute : public Named
     /** Try and issue instructions from the inputBuffer */
     unsigned int issue(ThreadID thread_id);
 
-    /** Per functional unit, its own instance of the VCIX accelerator model
-     *  it names; nullptr for a unit that takes no VcixAccel instructions */
+    /** Per functional unit, its VCIX accelerator model instance or nullptr */
     std::vector<std::unique_ptr<VcixAccelModel>> vcixModels;
 
-    /** The VCIX accelerator model instance, on some functional unit, that
-     *  owns these instruction bits; nullptr if none does */
+    /** The model instance that owns these instruction bits, or nullptr */
     VcixAccelModel *vcixOwner(uint32_t bits);
 
-    /** An instruction issued to a VCIX accelerator model and still in
-     *  flight */
+    /** An instruction issued to a VCIX accelerator model and in flight */
     struct VcixInFlight
     {
         MinorDynInstPtr inst;
         vcix_pending pending;
     };
 
-    /** Per functional unit, the instructions issued to its instance and not
-     *  yet committed or discarded, oldest first */
+    /** Per functional unit, its instructions in flight, oldest first */
     std::vector<std::vector<VcixInFlight>> vcixInFlight;
 
-    /** The in-flight instructions of a unit as its instance is told them:
-     *  those on a stream that has been abandoned are left out */
+    /** A unit's in-flight instructions, less those on an abandoned stream */
     std::vector<vcix_pending> vcixPending(unsigned int fu_index) const;
 
     /** Try to act on PC-related events.  Returns true if any were

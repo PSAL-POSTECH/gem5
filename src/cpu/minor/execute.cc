@@ -131,8 +131,6 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
      *  queue */
     unsigned int total_slots = 0;
 
-    /* Instructions issued to a VCIX accelerator model hold no FU slot but
-     *  do wait in the inFlightInsts queue: each unit's bound on them */
     unsigned int vcix_slots = 0;
 
     /* Make FUPipelines for each MinorFU */
@@ -143,9 +141,6 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
         std::ostringstream fu_name;
         MinorFU *fu_description = fuDescriptions.funcUnits[i];
 
-        /* A unit that takes VCIX accelerator instructions gets its own
-         *  instance of the model it names now, so a bad path or description
-         *  fails before simulation */
         if (fu_description->opClasses->provides(VcixAccelOp)) {
             fatal_if(fu_description->vcixModel.empty(),
                 "%s: functional unit %d takes VcixAccel instructions but"
@@ -567,8 +562,7 @@ cyclicIndexDec(unsigned int index, unsigned int cycle_size)
     return ret;
 }
 
-/** A VCIX instruction as the model receives it: its bits and the vector
- *  configuration it was decoded under */
+/** A VCIX instruction as the model receives it */
 static vcix_insn
 vcixInsn(const StaticInst &inst)
 {
@@ -741,14 +735,6 @@ Execute::issue(ThreadID thread_id)
                     } else if (!inst->isFault() &&
                         inst->staticInst->opClass() == VcixAccelOp)
                     {
-                        /* A VCIX accelerator instruction is the model's to
-                         *  accept. Accepted, it occupies no functional unit:
-                         *  it waits in inFlightInsts until the cycle the
-                         *  model said its result is ready, so how many are
-                         *  in flight is the model's decision, up to the
-                         *  unit's vcixMaxInFlight. One no model owns goes
-                         *  through unasked and is an illegal instruction at
-                         *  commit */
                         VcixAccelModel &accel = *vcixModels[fu_index];
                         const vcix_insn vcix = vcixInsn(*inst->staticInst);
                         const Cycles now = cpu.curCycle();
@@ -799,8 +785,6 @@ Execute::issue(ThreadID thread_id)
                             QueuedInst fu_inst(inst);
                             thread.inFlightInsts->push(fu_inst);
 
-                            /* As for a no-cost instruction: no unit was
-                             *  used, so issue can go on this cycle */
                             fu_index = noCostFUIndex;
                             issued = true;
                         }
@@ -970,8 +954,7 @@ Execute::issue(ThreadID thread_id)
         fu_index != numFuncUnits && /* Not visited all FUs */
         issued && /* We've not yet failed to issue an instruction */
         num_insts_issued != issueLimit && /* Still allowed to issue */
-        /* The memory issue limit stops memory references only: a
-         *  non-memory instruction behind it can still issue */
+        /* The memory issue limit stops memory references only */
         (num_mem_insts_issued != memoryIssueLimit ||
          !insts_in->insts[thread.inputIndex]->isMemRef()));
 
@@ -1170,9 +1153,6 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
         DPRINTF(MinorExecute, "Committing inst: %s\n", *inst);
 
         if (inst->staticInst->opClass() == VcixAccelOp) {
-            /* The model's timing state changes here, once per instruction
-             *  that commits without a fault; an instruction its unit's
-             *  model does not own is illegal */
             const auto &rv_inst = static_cast<
                 const RiscvISA::RiscvStaticInst &>(*inst->staticInst);
             VcixAccelModel &accel = *vcixModels[inst->vcixFUIndex];
@@ -1588,8 +1568,6 @@ Execute::commit(ThreadID thread_id, bool only_commit_microops, bool discard,
              *  clear its dependencies */
             ex_info.inFlightInsts->pop();
 
-            /* Committed or discarded, it is no longer in flight for its
-             *  accelerator model */
             if (!inst->isFault() &&
                 inst->staticInst->opClass() == VcixAccelOp)
             {
