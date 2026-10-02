@@ -183,6 +183,10 @@ class MinorFU : public SimObject
     std::vector<std::string> vcixConfigKeys;
     std::vector<std::string> vcixConfigValues;
 
+    /** The most instructions the unit has in flight for its model: at that
+     *  many, none is issued to it and the model is not asked */
+    unsigned int vcixMaxInFlight;
+
   public:
     MinorFU(const MinorFUParams &params) :
         SimObject(params),
@@ -193,7 +197,8 @@ class MinorFU : public SimObject
         timings(params.timings),
         vcixModel(params.vcixModel),
         vcixConfigKeys(params.vcixConfigKeys),
-        vcixConfigValues(params.vcixConfigValues)
+        vcixConfigValues(params.vcixConfigValues),
+        vcixMaxInFlight(params.vcixMaxInFlight)
     { }
 };
 

@@ -131,6 +131,10 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
      *  queue */
     unsigned int total_slots = 0;
 
+    /* Instructions issued to a VCIX accelerator model hold no FU slot but
+     *  do wait in the inFlightInsts queue: each unit's bound on them */
+    unsigned int vcix_slots = 0;
+
     /* Make FUPipelines for each MinorFU */
     vcixInFlight.resize(numFuncUnits);
     vcixModels.resize(numFuncUnits);
@@ -146,6 +150,10 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
             fatal_if(fu_description->vcixModel.empty(),
                 "%s: functional unit %d takes VcixAccel instructions but"
                 " names no vcixModel", name_, i);
+            fatal_if(fu_description->vcixMaxInFlight < 1,
+                "%s: functional unit %d: vcixMaxInFlight must be >= 1",
+                name_, i);
+            vcix_slots += fu_description->vcixMaxInFlight;
             vcixModels[i] = std::make_unique<VcixAccelModel>(
                 fu_description->vcixModel,
                 fu_description->vcixConfigKeys,
@@ -203,7 +211,8 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
         /* In-flight instruction records */
         executeInfo[tid].inFlightInsts =  new Queue<QueuedInst,
             ReportTraitsAdaptor<QueuedInst> >(
-            name_ + ".inFlightInsts" + tid_str, "insts", total_slots);
+            name_ + ".inFlightInsts" + tid_str, "insts",
+            total_slots + vcix_slots);
 
         executeInfo[tid].inFUMemInsts = new Queue<QueuedInst,
             ReportTraitsAdaptor<QueuedInst> >(
@@ -736,9 +745,10 @@ Execute::issue(ThreadID thread_id)
                          *  accept. Accepted, it occupies no functional unit:
                          *  it waits in inFlightInsts until the cycle the
                          *  model said its result is ready, so how many are
-                         *  in flight is the model's decision. One no model
-                         *  owns goes through unasked and is an illegal
-                         *  instruction at commit */
+                         *  in flight is the model's decision, up to the
+                         *  unit's vcixMaxInFlight. One no model owns goes
+                         *  through unasked and is an illegal instruction at
+                         *  commit */
                         VcixAccelModel &accel = *vcixModels[fu_index];
                         const vcix_insn vcix = vcixInsn(*inst->staticInst);
                         const Cycles now = cpu.curCycle();
@@ -746,7 +756,14 @@ Execute::issue(ThreadID thread_id)
                         const std::vector<vcix_pending> pending =
                             vcixPending(fu_index);
 
-                        if (!owned && vcixOwner(vcix.bits)) {
+                        if (vcixInFlight[fu_index].size() >=
+                            fu->description.vcixMaxInFlight)
+                        {
+                            DPRINTF(MinorExecute, "Can't issue inst: %s to"
+                                " FU: %d, it has its vcixMaxInFlight"
+                                " instructions in flight\n",
+                                *inst, fu_index);
+                        } else if (!owned && vcixOwner(vcix.bits)) {
                             DPRINTF(MinorExecute, "Can't issue inst: %s to"
                                 " FU: %d, another unit's model owns it\n",
                                 *inst, fu_index);

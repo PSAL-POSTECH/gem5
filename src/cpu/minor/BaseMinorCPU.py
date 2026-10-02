@@ -144,6 +144,11 @@ class MinorFU(SimObject):
     vcixConfigValues = VectorParam.String(
         [], "the value of each key in vcixConfigKeys, as written"
     )
+    vcixMaxInFlight = Param.Unsigned(
+        64,
+        "instructions this unit may have in flight; at that many, none is"
+        " issued to it and its model is not asked",
+    )
 
     cantForwardFromFUIndices = VectorParam.Unsigned(
         [],
@@ -292,7 +297,8 @@ class MinorDefaultMiscFU(MinorFU):
 
 class MinorVcixAccelFU(MinorFU):
     # Every instruction a VCIX accelerator model owns; set vcixModel to its
-    # shared library. Stall and latency come from the model, not from here.
+    # shared library. Stall and latency come from the model, not from here;
+    # vcixMaxInFlight bounds how many instructions it can overlap.
     opClasses = minorMakeOpClassSet(["VcixAccel"])
     opLat = 1
     issueLat = 1
