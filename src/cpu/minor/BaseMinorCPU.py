@@ -149,6 +149,11 @@ class MinorFU(SimObject):
         "instructions this unit may have in flight; at that many, none is"
         " issued to it and its model is not asked",
     )
+    vcixReadyWarnCycles = Param.Unsigned(
+        1000000,
+        "cycles after which an instruction whose model has not said its"
+        " result is ready is warned about, once; 0 for never",
+    )
 
     cantForwardFromFUIndices = VectorParam.Unsigned(
         [],

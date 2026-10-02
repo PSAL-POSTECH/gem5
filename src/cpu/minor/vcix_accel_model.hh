@@ -63,6 +63,15 @@ class VcixAccelModel
 
     bool ticks() const { return model->tick != nullptr; }
 
+    /** Whether the result of an instruction issued with no latency is ready */
+    bool
+    ready(uint64_t id, uint64_t now) const
+    {
+        return model->ready(self, id, now);
+    }
+
+    bool answersReady() const { return model->ready != nullptr; }
+
     /** One cycle, before the cycle's other calls */
     void
     tick(uint64_t now)

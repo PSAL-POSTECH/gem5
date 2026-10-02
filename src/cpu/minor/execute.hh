@@ -281,6 +281,13 @@ class Execute : public Named
     /** Whether a model instance is ticked every cycle */
     bool vcixTicks() const;
 
+    /** Free the registers of the instructions whose model now says their
+     *  result is ready, after the cycle's tick and before its commit */
+    void vcixRelease();
+
+    /** Whether an instruction in flight still waits for its model's ready */
+    bool vcixResultsPending() const;
+
     /** Per functional unit, the instructions its model was told were issued
      *  and has not been told were committed or squashed, oldest first */
     std::vector<std::list<MinorDynInstPtr>> vcixInFlight;

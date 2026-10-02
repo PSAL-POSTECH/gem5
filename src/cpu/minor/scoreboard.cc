@@ -204,6 +204,25 @@ Scoreboard::clearInstDests(MinorDynInstPtr inst, bool clear_unpredictable)
     }
 }
 
+void
+Scoreboard::markInstDestsPredictable(MinorDynInstPtr inst)
+{
+    if (inst->isFault())
+        return;
+
+    unsigned int num_dests = inst->staticInst->numDestRegs();
+
+    for (unsigned int dest_index = 0; dest_index < num_dests;
+        dest_index++)
+    {
+        const RegId& reg = inst->flatDestRegIdx[dest_index];
+        Index index;
+
+        if (findIndex(reg, index) && numUnpredictableResults[index] != 0)
+            numUnpredictableResults[index]--;
+    }
+}
+
 bool
 Scoreboard::canInstIssue(MinorDynInstPtr inst,
     const std::vector<Cycles> *src_reg_relative_latencies,
