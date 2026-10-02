@@ -50,7 +50,7 @@ jobs:
       - name: Package
         run: |
           strip --strip-debug build/RISCV/gem5.opt
-          build/RISCV/gem5.opt --version
+          build/RISCV/gem5.opt --build-info | head -n 4
           tar -czf "$ASSET" build/RISCV/gem5.opt configs
           sha256sum "$ASSET" | tee "$ASSET.sha256"
 
