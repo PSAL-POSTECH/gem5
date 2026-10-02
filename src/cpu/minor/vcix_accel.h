@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-#define VCIX_ACCEL_ABI_VERSION 6u
+#define VCIX_ACCEL_ABI_VERSION 7u
 
 typedef uint64_t vcix_cycle_t;
 
@@ -59,7 +59,7 @@ typedef struct vcix_host {
 } vcix_host;
 
 /* Valid, with its strings, while the library is loaded. Read abi_version first, and nothing else
- * if it differs. Only `reset` may be NULL, and `encodings` when num_encodings is 0. */
+ * if it differs. Only `tick` and `reset` may be NULL, and `encodings` when num_encodings is 0. */
 typedef struct vcix_model {
   uint32_t abi_version;
   const char *name;
@@ -75,12 +75,15 @@ typedef struct vcix_model {
   void (*execute)(void *self, const vcix_host *host, const vcix_insn *insn);
 
   /* Called by the timing simulator only. can_accept and latency must not change state. commit is
-   * called once, when the instruction commits without a fault. */
+   * called once, when the instruction commits without a fault, and makes the instance busy. */
   int (*can_accept)(void *self, const vcix_insn *insn, vcix_cycle_t now, const vcix_pending *pending,
                     size_t num_pending);
   vcix_cycle_t (*latency)(void *self, const vcix_insn *insn, vcix_cycle_t now, const vcix_pending *pending,
                           size_t num_pending);
   void (*commit)(void *self, const vcix_insn *insn, vcix_cycle_t now);
+  /* Once in every later cycle while the instance is busy, before that cycle's other calls; it stays
+   * busy while this returns nonzero. May be NULL: such an instance is never busy. */
+  int (*tick)(void *self, vcix_cycle_t now);
 
   /* Back to the state create left. May be NULL. */
   void (*reset)(void *self);

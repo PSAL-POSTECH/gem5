@@ -52,11 +52,22 @@ class VcixAccelModel
             pending.size());
     }
 
-    /** The instruction committed: the only call that changes the instance */
+    /** The instruction committed: the instance is busy from the next cycle */
     void
     commit(const vcix_insn &insn, uint64_t now)
     {
         model->commit(self, &insn, now);
+        busy = model->tick != nullptr;
+    }
+
+    /** Whether the instance must be ticked in the next cycle */
+    bool isBusy() const { return busy; }
+
+    /** One cycle of a busy instance, before the cycle's other calls */
+    void
+    tick(uint64_t now)
+    {
+        busy = model->tick(self, now);
     }
 
   private:
@@ -65,6 +76,7 @@ class VcixAccelModel
 
     const vcix_model *model;
     void *self;
+    bool busy = false;
 };
 
 } // namespace minor

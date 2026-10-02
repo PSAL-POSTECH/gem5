@@ -584,6 +584,25 @@ Execute::vcixOwner(uint32_t bits)
     return nullptr;
 }
 
+void
+Execute::vcixTick()
+{
+    for (const std::unique_ptr<VcixAccelModel> &accel : vcixModels) {
+        if (accel && accel->isBusy())
+            accel->tick(cpu.curCycle());
+    }
+}
+
+bool
+Execute::vcixBusy() const
+{
+    for (const std::unique_ptr<VcixAccelModel> &accel : vcixModels) {
+        if (accel && accel->isBusy())
+            return true;
+    }
+    return false;
+}
+
 std::vector<vcix_pending>
 Execute::vcixPending(unsigned int fu_index) const
 {
@@ -1645,6 +1664,8 @@ Execute::evaluate()
 
     unsigned int num_issued = 0;
 
+    vcixTick();
+
     /* Do all the cycle-wise activities for dcachePort here to potentially
      *  free up input spaces in the LSQ's requests queue */
     lsq.step();
@@ -1811,6 +1832,9 @@ Execute::evaluate()
 
     /* Wake up if we need to tick again */
     if (need_to_tick)
+        cpu.wakeupOnEvent(Pipeline::ExecuteStageId);
+
+    if (vcixBusy())
         cpu.wakeupOnEvent(Pipeline::ExecuteStageId);
 
     /* Note activity of following buffer */
@@ -2065,6 +2089,9 @@ bool
 Execute::isDrained()
 {
     if (!lsq.isDrained())
+        return false;
+
+    if (vcixBusy())
         return false;
 
     for (ThreadID tid = 0; tid < cpu.numThreads; tid++) {

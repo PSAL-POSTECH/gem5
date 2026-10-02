@@ -274,6 +274,12 @@ class Execute : public Named
     /** The model instance that owns these instruction bits, or nullptr */
     VcixAccelModel *vcixOwner(uint32_t bits);
 
+    /** Tick every busy model instance, before the cycle's commit and issue */
+    void vcixTick();
+
+    /** Whether a model instance must be ticked in the next cycle */
+    bool vcixBusy() const;
+
     /** An instruction issued to a VCIX accelerator model and in flight */
     struct VcixInFlight
     {
