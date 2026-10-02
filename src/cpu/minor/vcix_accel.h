@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-#define VCIX_ACCEL_ABI_VERSION 5u
+#define VCIX_ACCEL_ABI_VERSION 6u
 
 typedef uint64_t vcix_cycle_t;
 
@@ -32,7 +32,7 @@ typedef struct vcix_insn {
   int32_t lmul_log2; /* LMUL = 2^lmul_log2, from -3 to 3 */
 } vcix_insn;
 
-/* An instruction the timing simulator has issued to this model and not yet
+/* An instruction the timing simulator has issued to this instance and not yet
  * committed. The simulator keeps the list, oldest first, and drops an entry
  * when the instruction commits or is squashed. */
 typedef struct vcix_pending {
@@ -45,7 +45,7 @@ typedef struct vcix_pending {
  * the gem5 config script). get(key) is the text of a top-level scalar as
  * written, with no typing, or NULL when the key is missing or its value is YAML
  * null, a mapping or a sequence. Both give the same answer for the same file.
- * The config and its strings are valid only until configure returns. */
+ * The config and its strings are valid only until create returns. */
 typedef struct vcix_config {
   void *ctx;
   const char *(*get)(void *ctx, const char *key);
@@ -67,22 +67,22 @@ typedef struct vcix_host {
   void (*mem_write)(void *ctx, uint64_t addr, const void *src, size_t bytes);
 } vcix_host;
 
-/* The table a model library hands over. It and its strings stay valid while
- * the library is loaded. A caller reads abi_version first, and nothing else if
- * it differs. `configure` and `reset` may be NULL; `encodings` only when
- * num_encodings is 0; `name` and the other functions never. */
+/* The table a model library hands over: what the model is, and how to make one.
+ * It and its strings stay valid while the library is loaded. A caller reads
+ * abi_version first, and nothing else if it differs. `reset` may be NULL;
+ * `encodings` only when num_encodings is 0; `name` and the other functions never. */
 typedef struct vcix_model {
   uint32_t abi_version;
   const char *name;
-  void *self;
 
   const vcix_encoding *encodings;
   size_t num_encodings;
 
-  /* Called once, before any other function of this table. `name` and
-   * `encodings` are fixed before it, so they cannot depend on the machine
-   * description. May be NULL. */
-  void (*configure)(void *self, const vcix_config *config);
+  /* A new instance, configured from the machine description; NULL when it cannot
+   * be, with the reason written to `error` (NUL-terminated, at most error_size
+   * bytes). Instances share no state, and each is the `self` of the calls below. */
+  void *(*create)(const vcix_config *config, char *error, size_t error_size);
+  void (*destroy)(void *self);
 
   /* Functional face. Called by the functional simulator only. */
   void (*execute)(void *self, const vcix_host *host, const vcix_insn *insn);
@@ -98,7 +98,7 @@ typedef struct vcix_model {
                           size_t num_pending);
   void (*commit)(void *self, const vcix_insn *insn, vcix_cycle_t now);
 
-  /* Back to the state configure left. May be called more than once. May be NULL. */
+  /* Back to the state create left. May be called more than once. May be NULL. */
   void (*reset)(void *self);
 } vcix_model;
 

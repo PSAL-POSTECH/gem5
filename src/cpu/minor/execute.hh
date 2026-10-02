@@ -45,6 +45,7 @@
 #ifndef __CPU_MINOR_EXECUTE_HH__
 #define __CPU_MINOR_EXECUTE_HH__
 
+#include <memory>
 #include <vector>
 
 #include "base/named.hh"
@@ -267,8 +268,12 @@ class Execute : public Named
     /** Try and issue instructions from the inputBuffer */
     unsigned int issue(ThreadID thread_id);
 
-    /** The VCIX accelerator model, on some functional unit, that owns these
-     *  instruction bits; nullptr if none does */
+    /** Per functional unit, its own instance of the VCIX accelerator model
+     *  it names; nullptr for a unit that takes no VcixAccel instructions */
+    std::vector<std::unique_ptr<VcixAccelModel>> vcixModels;
+
+    /** The VCIX accelerator model instance, on some functional unit, that
+     *  owns these instruction bits; nullptr if none does */
     VcixAccelModel *vcixOwner(uint32_t bits);
 
     /** An instruction issued to a VCIX accelerator model and still in
@@ -279,11 +284,11 @@ class Execute : public Named
         vcix_pending pending;
     };
 
-    /** Per functional unit, the instructions issued to its model and not
+    /** Per functional unit, the instructions issued to its instance and not
      *  yet committed or discarded, oldest first */
     std::vector<std::vector<VcixInFlight>> vcixInFlight;
 
-    /** The in-flight instructions of a unit as its model is told them:
+    /** The in-flight instructions of a unit as its instance is told them:
      *  those on a stream that has been abandoned are left out */
     std::vector<vcix_pending> vcixPending(unsigned int fu_index) const;
 

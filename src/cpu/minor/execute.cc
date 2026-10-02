@@ -133,18 +133,21 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
 
     /* Make FUPipelines for each MinorFU */
     vcixInFlight.resize(numFuncUnits);
+    vcixModels.resize(numFuncUnits);
 
     for (unsigned int i = 0; i < numFuncUnits; i++) {
         std::ostringstream fu_name;
         MinorFU *fu_description = fuDescriptions.funcUnits[i];
 
-        /* A unit that names a VCIX accelerator model loads and configures
-         *  it now, so a bad path or description fails before simulation */
+        /* A unit that takes VCIX accelerator instructions gets its own
+         *  instance of the model it names now, so a bad path or description
+         *  fails before simulation */
         if (fu_description->opClasses->provides(VcixAccelOp)) {
             fatal_if(fu_description->vcixModel.empty(),
                 "%s: functional unit %d takes VcixAccel instructions but"
                 " names no vcixModel", name_, i);
-            VcixAccelModel::load(fu_description->vcixModel).configure(
+            vcixModels[i] = std::make_unique<VcixAccelModel>(
+                fu_description->vcixModel,
                 fu_description->vcixConfigKeys,
                 fu_description->vcixConfigValues);
         }
@@ -571,15 +574,9 @@ vcixInsn(const StaticInst &inst)
 VcixAccelModel *
 Execute::vcixOwner(uint32_t bits)
 {
-    for (FUPipeline *fu : funcUnits) {
-        const std::string &path = fu->description.vcixModel;
-
-        if (path.empty())
-            continue;
-
-        VcixAccelModel &accel = VcixAccelModel::load(path);
-        if (accel.owns(bits))
-            return &accel;
+    for (const std::unique_ptr<VcixAccelModel> &accel : vcixModels) {
+        if (accel && accel->owns(bits))
+            return accel.get();
     }
     return nullptr;
 }
@@ -742,8 +739,7 @@ Execute::issue(ThreadID thread_id)
                          *  in flight is the model's decision. One no model
                          *  owns goes through unasked and is an illegal
                          *  instruction at commit */
-                        VcixAccelModel &accel = VcixAccelModel::load(
-                            fu->description.vcixModel);
+                        VcixAccelModel &accel = *vcixModels[fu_index];
                         const vcix_insn vcix = vcixInsn(*inst->staticInst);
                         const Cycles now = cpu.curCycle();
                         const bool owned = accel.owns(vcix.bits);
@@ -1162,8 +1158,7 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
              *  model does not own is illegal */
             const auto &rv_inst = static_cast<
                 const RiscvISA::RiscvStaticInst &>(*inst->staticInst);
-            VcixAccelModel &accel = VcixAccelModel::load(
-                funcUnits[inst->vcixFUIndex]->description.vcixModel);
+            VcixAccelModel &accel = *vcixModels[inst->vcixFUIndex];
 
             if (!accel.owns(rv_inst.machInst.instBits)) {
                 fault = std::make_shared<RiscvISA::IllegalInstFault>(

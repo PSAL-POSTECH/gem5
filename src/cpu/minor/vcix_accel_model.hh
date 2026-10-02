@@ -1,6 +1,6 @@
-/* The timing face of a VCIX accelerator model (vcix_accel.h), loaded from a
- * shared library. Execute asks it at issue whether an instruction can start
- * and how long it takes, and tells it at commit that the instruction ran. */
+/* One instance of a VCIX accelerator model (vcix_accel.h), made from a shared
+ * library. Execute asks it at issue whether an instruction can start and how
+ * long it takes, and tells it at commit that the instruction ran. */
 
 #ifndef __CPU_MINOR_VCIX_ACCEL_MODEL_HH__
 #define __CPU_MINOR_VCIX_ACCEL_MODEL_HH__
@@ -20,13 +20,17 @@ namespace minor
 class VcixAccelModel
 {
   public:
-    /** The model in the library at path; loaded once per path */
-    static VcixAccelModel &load(const std::string &path);
-
-    /** Hand the model its machine description, as parallel keys and
-     *  values. Only the first call for a model does anything */
-    void configure(const std::vector<std::string> &keys,
+    /** A new instance of the model in the library at path, configured from
+     *  the machine description given as parallel keys and values. Fatal if
+     *  the library cannot be used or the model refuses the description */
+    VcixAccelModel(const std::string &path,
+        const std::vector<std::string> &keys,
         const std::vector<std::string> &values);
+
+    ~VcixAccelModel();
+
+    VcixAccelModel(const VcixAccelModel &) = delete;
+    VcixAccelModel &operator=(const VcixAccelModel &) = delete;
 
     /** Does the model own this instruction */
     bool
@@ -35,13 +39,13 @@ class VcixAccelModel
         return vcix_owner(model, bits) != nullptr;
     }
 
-    /** Can the model take this instruction now, given the ones issued to
+    /** Can the instance take this instruction now, given the ones issued to
      *  it and not yet committed */
     bool
     canAccept(const vcix_insn &insn, uint64_t now,
         const std::vector<vcix_pending> &pending) const
     {
-        return model->can_accept(model->self, &insn, now, pending.data(),
+        return model->can_accept(self, &insn, now, pending.data(),
             pending.size());
     }
 
@@ -50,22 +54,24 @@ class VcixAccelModel
     latency(const vcix_insn &insn, uint64_t now,
         const std::vector<vcix_pending> &pending) const
     {
-        return model->latency(model->self, &insn, now, pending.data(),
+        return model->latency(self, &insn, now, pending.data(),
             pending.size());
     }
 
-    /** The instruction committed: the only call that changes the model */
+    /** The instruction committed: the only call that changes the instance */
     void
     commit(const vcix_insn &insn, uint64_t now)
     {
-        model->commit(model->self, &insn, now);
+        model->commit(self, &insn, now);
     }
 
   private:
-    explicit VcixAccelModel(const vcix_model *m) : model(m) {}
+    /** The table of the library at path; a library is loaded once, however
+     *  many instances are made from it */
+    static const vcix_model *load(const std::string &path);
 
     const vcix_model *model;
-    bool configured = false;
+    void *self;
 };
 
 } // namespace minor

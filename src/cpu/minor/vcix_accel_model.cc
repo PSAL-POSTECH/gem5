@@ -12,10 +12,10 @@ namespace gem5
 namespace minor
 {
 
-VcixAccelModel &
+const vcix_model *
 VcixAccelModel::load(const std::string &path)
 {
-    static std::map<std::string, VcixAccelModel> loaded;
+    static std::map<std::string, const vcix_model *> loaded;
 
     auto found = loaded.find(path);
     if (found != loaded.end())
@@ -35,20 +35,20 @@ VcixAccelModel::load(const std::string &path)
     fatal_if(model->abi_version != VCIX_ACCEL_ABI_VERSION,
         "%s has ABI %u, gem5 has %u", path, model->abi_version,
         VCIX_ACCEL_ABI_VERSION);
-    fatal_if(!model->can_accept || !model->latency || !model->commit,
-        "%s: the table leaves a timing-face function NULL", path);
+    fatal_if(!model->create || !model->destroy || !model->can_accept ||
+        !model->latency || !model->commit,
+        "%s: the table leaves create, destroy or a timing-face function"
+        " NULL", path);
 
-    return loaded.emplace(path, VcixAccelModel(model)).first->second;
+    loaded.emplace(path, model);
+    return model;
 }
 
-void
-VcixAccelModel::configure(const std::vector<std::string> &keys,
-    const std::vector<std::string> &values)
+VcixAccelModel::VcixAccelModel(const std::string &path,
+    const std::vector<std::string> &keys,
+    const std::vector<std::string> &values) :
+    model(load(path))
 {
-    if (configured)
-        return;
-    configured = true;
-
     fatal_if(keys.size() != values.size(),
         "vcixConfigKeys and vcixConfigValues differ in length");
 
@@ -63,11 +63,16 @@ VcixAccelModel::configure(const std::vector<std::string> &keys,
             auto found = map.find(key);
             return found == map.end() ? nullptr : found->second.c_str();
         }};
-    if (model->configure)
-        model->configure(model->self, &config);
+    char error[256] = "";
 
-    if (model->reset)
-        model->reset(model->self);
+    self = model->create(&config, error, sizeof(error));
+    if (!self)
+        fatal("%s: %s: %s", path, model->name, error);
+}
+
+VcixAccelModel::~VcixAccelModel()
+{
+    model->destroy(self);
 }
 
 } // namespace minor
