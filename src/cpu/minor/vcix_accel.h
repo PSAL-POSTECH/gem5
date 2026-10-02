@@ -1,5 +1,4 @@
-/* The boundary between an accelerator model and a simulator: plain C, no
- * simulator headers. A model exports one symbol, vcix_accel_model(). */
+/* The C boundary between an accelerator model and a simulator. A model exports vcix_accel_model(). */
 #ifndef VCIX_ACCEL_H
 #define VCIX_ACCEL_H
 
@@ -30,63 +29,56 @@ typedef struct vcix_insn {
   uint32_t bits;
   uint32_t vl;
   uint32_t sew_bits;
-  int32_t lmul_log2; /* LMUL = 2^lmul_log2, from -3 to 3 */
+  int32_t lmul_log2;
 } vcix_insn;
 
-/* get(key) is the text of a top-level scalar as written, or NULL when the key is missing or its
- * value is YAML null, a mapping or a sequence. Valid, with its strings, only until create returns. */
+/* get(key): a non-null top-level scalar as written, else NULL. Valid only until create returns. */
 typedef struct vcix_config {
   void *ctx;
   const char *(*get)(void *ctx, const char *key);
 } vcix_config;
 
-/* What execute may ask of the simulator. Every callback takes `ctx` back. */
+/* What execute may ask of the simulator. */
 typedef struct vcix_host {
   void *ctx;
   uint32_t (*lanes)(void *ctx);
   uint32_t (*vlen_bits)(void *ctx);
-  /* The bytes of vector register `reg` in `lane`, vlen_bits/8 of them. */
+  /* The vlen_bits/8 bytes of vector register `reg` in `lane`. */
   void *(*vreg)(void *ctx, uint32_t lane, uint32_t reg, int will_write);
   uint64_t (*xreg_read)(void *ctx, uint32_t reg);
   void (*xreg_write)(void *ctx, uint32_t reg, uint64_t value);
-  /* The low 64 bits of floating-point register `reg`, as stored. */
   uint64_t (*freg_bits)(void *ctx, uint32_t reg);
   void (*mem_read)(void *ctx, uint64_t addr, void *dst, size_t bytes);
   void (*mem_write)(void *ctx, uint64_t addr, const void *src, size_t bytes);
 } vcix_host;
 
-/* Valid, with its strings, while the library is loaded. Read abi_version first, and nothing else
- * if it differs. Only `tick`, `ready` and `reset` may be NULL, and `encodings` when num_encodings is 0. */
+/* Valid while the library is loaded. Read abi_version first, and nothing else if it differs. */
 typedef struct vcix_model {
   uint32_t abi_version;
   const char *name;
 
+  /* May be NULL when num_encodings is 0. */
   const vcix_encoding *encodings;
   size_t num_encodings;
 
-  /* A new instance, or NULL with the reason in `error` (NUL-terminated). Instances share no state. */
+  /* A new instance, or NULL with the reason in `error`. Instances share no state. */
   void *(*create)(const vcix_config *config, char *error, size_t error_size);
   void (*destroy)(void *self);
 
-  /* Called by the functional simulator only. */
+  /* Functional simulator only. */
   void (*execute)(void *self, const vcix_host *host, const vcix_insn *insn);
 
-  /* Called by the timing simulator only, in cycle order; within a cycle tick comes first, then
-   * ready, then commit and squash, then can_accept and issue. Every issued instruction gets one commit or is
-   * squashed. can_accept must not change state. */
+  /* This and the rest down to ready: timing simulator only. Must not change state. */
   int (*can_accept)(void *self, const vcix_insn *insn, vcix_cycle_t now);
-  /* The instruction enters, after can_accept said so in this cycle. Returns the cycles until its
-   * result is ready, or VCIX_LATENCY_UNKNOWN. */
+  /* Only after can_accept in this cycle. Returns the cycles until ready, or VCIX_LATENCY_UNKNOWN. */
   vcix_cycle_t (*issue)(void *self, const vcix_insn *insn, vcix_id_t id, vcix_cycle_t now);
-  /* Every issued instruction from `first` on is taken back: the state must be what it would be had
-   * they never been issued. */
+  /* Takes back every issued instruction from `first` on: state as if they were never issued. */
   void (*squash)(void *self, vcix_id_t first, vcix_cycle_t now);
-  /* The oldest issued instruction can no longer be squashed. */
+  /* The oldest issued instruction is final. Every issued instruction gets one commit or is squashed. */
   void (*commit)(void *self, const vcix_insn *insn, vcix_id_t id, vcix_cycle_t now);
-  /* Once in every cycle the processor runs, whether or not an instruction is in flight. May be NULL. */
+  /* First in every cycle, in flight or not; then ready, commit and squash, can_accept and issue. May be NULL. */
   void (*tick)(void *self, vcix_cycle_t now);
-  /* Whether the result of an instruction issued with VCIX_LATENCY_UNKNOWN is ready. Asked in every
-   * later cycle until it is, and never again. May be NULL in a table whose issue never returns that. */
+  /* Asked every cycle after issue returned VCIX_LATENCY_UNKNOWN, until true. May be NULL if it never does. */
   int (*ready)(void *self, vcix_id_t id, vcix_cycle_t now);
 
   /* Back to the state create left. May be NULL. */
@@ -95,7 +87,6 @@ typedef struct vcix_model {
 
 const vcix_model *vcix_accel_model(void);
 
-/* The encoding of `model` that `insn` matches, or NULL. */
 static inline const vcix_encoding *vcix_owner(const vcix_model *model, uint32_t insn) {
   for (size_t i = 0; i < model->num_encodings; i++) {
     const vcix_encoding *e = &model->encodings[i];
