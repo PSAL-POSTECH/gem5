@@ -145,7 +145,7 @@ class MinorFU(SimObject):
         [], "the value of each key in vcixConfigKeys, as written"
     )
     vcixMaxInFlight = Param.Unsigned(
-        64,
+        8192,
         "instructions this unit may have in flight; at that many, none is"
         " issued to it and its model is not asked",
     )
