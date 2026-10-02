@@ -135,6 +135,7 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
 
     /* Make FUPipelines for each MinorFU */
     vcixInFlight.resize(numFuncUnits);
+    vcixQueued.resize(numFuncUnits, 0);
     vcixModels.resize(numFuncUnits);
 
     for (unsigned int i = 0; i < numFuncUnits; i++) {
@@ -145,6 +146,9 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
             fatal_if(fu_description->vcixModel.empty(),
                 "%s: functional unit %d takes VcixAccel instructions but"
                 " names no vcixModel", name_, i);
+            fatal_if(cpu.numThreads != 1, "%s: functional unit %d: a VCIX"
+                " accelerator model takes back all it has in flight at once,"
+                " which needs a CPU of one thread", name_, i);
             fatal_if(fu_description->vcixMaxInFlight < 1,
                 "%s: functional unit %d: vcixMaxInFlight must be >= 1",
                 name_, i);
@@ -325,8 +329,12 @@ Execute::updateBranchData(
 {
     if (reason != BranchData::NoBranch) {
         /* Bump up the stream sequence number on a real branch*/
-        if (BranchData::isStreamChange(reason))
+        if (BranchData::isStreamChange(reason)) {
             executeInfo[tid].streamSeqNum++;
+
+            for (unsigned int i = 0; i < numFuncUnits; i++)
+                vcixSquash(i);
+        }
 
         /* Branches (even mis-predictions) don't change the predictionSeqNum,
          *  just the streamSeqNum */
@@ -584,18 +592,35 @@ Execute::vcixOwner(uint32_t bits)
     return nullptr;
 }
 
-std::vector<vcix_pending>
-Execute::vcixPending(unsigned int fu_index) const
+void
+Execute::vcixTick()
 {
-    std::vector<vcix_pending> pending;
-
-    for (const VcixInFlight &entry : vcixInFlight[fu_index]) {
-        const InstId &id = entry.inst->id;
-
-        if (id.streamSeqNum == executeInfo[id.threadId].streamSeqNum)
-            pending.push_back(entry.pending);
+    for (const std::unique_ptr<VcixAccelModel> &accel : vcixModels) {
+        if (accel && accel->ticks())
+            accel->tick(cpu.curCycle());
     }
-    return pending;
+}
+
+bool
+Execute::vcixTicks() const
+{
+    for (const std::unique_ptr<VcixAccelModel> &accel : vcixModels) {
+        if (accel && accel->ticks())
+            return true;
+    }
+    return false;
+}
+
+void
+Execute::vcixSquash(unsigned int fu_index)
+{
+    std::list<MinorDynInstPtr> &in_flight = vcixInFlight[fu_index];
+
+    if (in_flight.empty())
+        return;
+
+    vcixModels[fu_index]->squash(in_flight.front()->vcixId, cpu.curCycle());
+    in_flight.clear();
 }
 
 unsigned int
@@ -739,10 +764,8 @@ Execute::issue(ThreadID thread_id)
                         const vcix_insn vcix = vcixInsn(*inst->staticInst);
                         const Cycles now = cpu.curCycle();
                         const bool owned = accel.owns(vcix.bits);
-                        const std::vector<vcix_pending> pending =
-                            vcixPending(fu_index);
 
-                        if (vcixInFlight[fu_index].size() >=
+                        if (vcixQueued[fu_index] >=
                             fu->description.vcixMaxInFlight)
                         {
                             DPRINTF(MinorExecute, "Can't issue inst: %s to"
@@ -753,15 +776,20 @@ Execute::issue(ThreadID thread_id)
                             DPRINTF(MinorExecute, "Can't issue inst: %s to"
                                 " FU: %d, another unit's model owns it\n",
                                 *inst, fu_index);
-                        } else if (owned &&
-                            !accel.canAccept(vcix, now, pending))
-                        {
+                        } else if (owned && !accel.canAccept(vcix, now)) {
                             DPRINTF(MinorExecute, "Can't issue inst: %s,"
                                 " the accelerator model is not accepting"
                                 " it\n", *inst);
                         } else {
-                            const Cycles lat(owned ?
-                                accel.latency(vcix, now, pending) : 0);
+                            Cycles lat(0);
+
+                            if (owned) {
+                                inst->vcixId = vcixNextId++;
+                                lat = Cycles(accel.issue(vcix, inst->vcixId,
+                                    now));
+                                vcixInFlight[fu_index].push_back(inst);
+                            }
+                            vcixQueued[fu_index]++;
 
                             DPRINTF(MinorExecute, "Issuing inst: %s to the"
                                 " accelerator model of FU %d, ready in %d"
@@ -770,17 +798,14 @@ Execute::issue(ThreadID thread_id)
 
                             cpu.activityRecorder->activity();
 
-                            scoreboard[thread_id].markupInstDests(inst,
-                                now + lat, cpu.getContext(thread_id), false);
-
                             inst->vcixFUIndex = fu_index;
                             inst->fuIndex = noCostFUIndex;
+
+                            scoreboard[thread_id].markupInstDests(inst,
+                                now + lat, cpu.getContext(thread_id), false);
                             inst->extraCommitDelay = Cycles(0);
                             inst->extraCommitDelayExpr = NULL;
                             inst->minimumCommitCycle = now + lat;
-
-                            vcixInFlight[fu_index].push_back(
-                                {inst, {vcix, now, now + lat}});
 
                             QueuedInst fu_inst(inst);
                             thread.inFlightInsts->push(fu_inst);
@@ -1163,8 +1188,12 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
             } else {
                 fault = inst->staticInst->execute(&context, inst->traceData);
                 if (fault == NoFault) {
-                    accel.commit(vcixInsn(*inst->staticInst),
+                    accel.commit(vcixInsn(*inst->staticInst), inst->vcixId,
                         cpu.curCycle());
+                    assert(vcixInFlight[inst->vcixFUIndex].front() == inst);
+                    vcixInFlight[inst->vcixFUIndex].pop_front();
+                } else {
+                    vcixSquash(inst->vcixFUIndex);
                 }
             }
         } else {
@@ -1571,15 +1600,12 @@ Execute::commit(ThreadID thread_id, bool only_commit_microops, bool discard,
             if (!inst->isFault() &&
                 inst->staticInst->opClass() == VcixAccelOp)
             {
-                auto &in_flight = vcixInFlight[inst->vcixFUIndex];
+                const std::list<MinorDynInstPtr> &in_flight =
+                    vcixInFlight[inst->vcixFUIndex];
 
-                for (auto it = in_flight.begin(); it != in_flight.end(); ++it)
-                {
-                    if (it->inst == inst) {
-                        in_flight.erase(it);
-                        break;
-                    }
-                }
+                vcixQueued[inst->vcixFUIndex]--;
+                if (!in_flight.empty() && in_flight.front() == inst)
+                    vcixSquash(inst->vcixFUIndex);
             }
 
             /* Complete barriers in the LSQ/move to store buffer */
@@ -1644,6 +1670,8 @@ Execute::evaluate()
     BranchData &branch = *out.inputWire;
 
     unsigned int num_issued = 0;
+
+    vcixTick();
 
     /* Do all the cycle-wise activities for dcachePort here to potentially
      *  free up input spaces in the LSQ's requests queue */
@@ -1811,6 +1839,9 @@ Execute::evaluate()
 
     /* Wake up if we need to tick again */
     if (need_to_tick)
+        cpu.wakeupOnEvent(Pipeline::ExecuteStageId);
+
+    if (vcixTicks())
         cpu.wakeupOnEvent(Pipeline::ExecuteStageId);
 
     /* Note activity of following buffer */

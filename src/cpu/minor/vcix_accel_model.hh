@@ -36,27 +36,38 @@ class VcixAccelModel
     }
 
     bool
-    canAccept(const vcix_insn &insn, uint64_t now,
-        const std::vector<vcix_pending> &pending) const
+    canAccept(const vcix_insn &insn, uint64_t now) const
     {
-        return model->can_accept(self, &insn, now, pending.data(),
-            pending.size());
+        return model->can_accept(self, &insn, now);
     }
 
-    /** Cycles until the result of a just-accepted instruction is ready */
+    /** The instruction enters; cycles until its result is ready */
     uint64_t
-    latency(const vcix_insn &insn, uint64_t now,
-        const std::vector<vcix_pending> &pending) const
+    issue(const vcix_insn &insn, uint64_t id, uint64_t now)
     {
-        return model->latency(self, &insn, now, pending.data(),
-            pending.size());
+        return model->issue(self, &insn, id, now);
     }
 
-    /** The instruction committed: the only call that changes the instance */
+    /** Every issued instruction from first on is taken back */
     void
-    commit(const vcix_insn &insn, uint64_t now)
+    squash(uint64_t first, uint64_t now)
     {
-        model->commit(self, &insn, now);
+        model->squash(self, first, now);
+    }
+
+    void
+    commit(const vcix_insn &insn, uint64_t id, uint64_t now)
+    {
+        model->commit(self, &insn, id, now);
+    }
+
+    bool ticks() const { return model->tick != nullptr; }
+
+    /** One cycle, before the cycle's other calls */
+    void
+    tick(uint64_t now)
+    {
+        model->tick(self, now);
     }
 
   private:

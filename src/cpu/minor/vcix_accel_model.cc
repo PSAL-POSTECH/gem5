@@ -36,7 +36,7 @@ VcixAccelModel::load(const std::string &path)
         "%s has ABI %u, gem5 has %u", path, model->abi_version,
         VCIX_ACCEL_ABI_VERSION);
     fatal_if(!model->create || !model->destroy || !model->can_accept ||
-        !model->latency || !model->commit,
+        !model->issue || !model->squash || !model->commit,
         "%s: the table leaves create, destroy or a timing-face function"
         " NULL", path);
 
