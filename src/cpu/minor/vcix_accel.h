@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define VCIX_ACCEL_ABI_VERSION 9u
+#define VCIX_ACCEL_ABI_VERSION 10u
 
 typedef uint64_t vcix_cycle_t;
 /* Names an issued instruction; later instructions have larger ids. */
@@ -48,6 +48,8 @@ typedef struct vcix_host {
   uint64_t (*xreg_read)(void *ctx, uint32_t reg);
   void (*xreg_write)(void *ctx, uint32_t reg, uint64_t value);
   uint64_t (*freg_bits)(void *ctx, uint32_t reg);
+  /* The value of CSR number `csr` now, whatever the privilege mode. A CSR the hart lacks ends the run. */
+  uint64_t (*csr_read)(void *ctx, uint32_t csr);
   void (*mem_read)(void *ctx, uint64_t addr, void *dst, size_t bytes);
   void (*mem_write)(void *ctx, uint64_t addr, const void *src, size_t bytes);
 } vcix_host;
