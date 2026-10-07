@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define VCIX_ACCEL_ABI_VERSION 10u
+#define VCIX_ACCEL_ABI_VERSION 11u
 
 typedef uint64_t vcix_cycle_t;
 /* Names an issued instruction; later instructions have larger ids. */
@@ -54,6 +54,23 @@ typedef struct vcix_host {
   void (*mem_write)(void *ctx, uint64_t addr, const void *src, size_t bytes);
 } vcix_host;
 
+/* What a statistic's value is. CAPACITY is a constant; every other kind only grows from create on, reset or not. */
+#define VCIX_STAT_ADMITTED 0u  /* what a port let in */
+#define VCIX_STAT_CAPACITY 1u  /* what the port can let in per cycle */
+#define VCIX_STAT_CYCLES 2u    /* cycles the instance was ticked, replays after a squash included */
+#define VCIX_STAT_OCCUPANCY 3u /* what was held behind the port, summed over the cycles */
+#define VCIX_STAT_COUNT 4u     /* a plain count: unit "committed", name an encoding's, counts its commits */
+
+/* A port is the entries of one (unit, name); utilization = ADMITTED / (CAPACITY * CYCLES). primary is 1 on every
+   entry of the one port per unit that is the unit's utilization, 0 elsewhere. Strings live as long as the instance. */
+typedef struct vcix_stat {
+  const char *unit;
+  const char *name;
+  const char *unit_of_work;
+  uint32_t kind;
+  uint32_t primary;
+} vcix_stat;
+
 /* Valid while the library is loaded. Read abi_version first, and nothing else if it differs. */
 typedef struct vcix_model {
   uint32_t abi_version;
@@ -83,8 +100,15 @@ typedef struct vcix_model {
   /* Asked every cycle after issue returned VCIX_LATENCY_UNKNOWN, until true. May be NULL if it never does. */
   int (*ready)(void *self, vcix_id_t id, vcix_cycle_t now);
 
-  /* Back to the state create left. May be NULL. */
+  /* Back to the state create left, statistics aside. May be NULL. */
   void (*reset)(void *self);
+
+  /* The statistics of an instance, asked after create; each may be NULL, and NULL num_stats means none. */
+  size_t (*num_stats)(void *self);
+  /* Entry i < num_stats, the same for the instance's life; NULL past the end. */
+  const vcix_stat *(*stat)(void *self, size_t i);
+  /* values[i] for each entry i, as of now. Must not change state. */
+  void (*read_stats)(void *self, uint64_t *values);
 } vcix_model;
 
 const vcix_model *vcix_accel_model(void);
