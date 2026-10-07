@@ -18,9 +18,9 @@ namespace gem5
 namespace minor
 {
 
-/** The statistics a model counts at its ports, as the group 'vcix'. A reset
- *  takes the model's cumulative values as the base; a dump shows each value
- *  less its base, except a port's capacity and primary flag, constants. */
+/** The statistics a model counts at each unit's primary port, as the group
+ *  'vcix'. A reset takes the model's cumulative values as the base; a dump
+ *  shows each value less its base, except a unit's capacity, a constant. */
 class VcixAccelStats : public statistics::Group
 {
   public:
@@ -32,27 +32,16 @@ class VcixAccelStats : public statistics::Group
     void preDumpStats() override;
 
   private:
-    struct PortStats : public statistics::Group
+    struct UnitStats : public statistics::Group
     {
-        PortStats(statistics::Group *unit, const std::string &name,
-            const std::string &unit_of_work, bool is_primary);
+        UnitStats(statistics::Group *vcix, const std::string &name,
+            const std::string &port, const std::string &unit_of_work);
 
-        const bool isPrimary;
         statistics::Scalar admitted;
         statistics::Scalar capacity;
         statistics::Scalar cycles;
         statistics::Scalar occupancy;
-        statistics::Scalar primary;
         statistics::Formula utilizedCycles;
-    };
-
-    struct UnitStats : public statistics::Group
-    {
-        UnitStats(statistics::Group *vcix, const std::string &name);
-
-        const std::string name;
-        statistics::Formula utilizedCycles;
-        std::vector<std::unique_ptr<PortStats>> ports;
     };
 
     struct CountStats : public statistics::Group

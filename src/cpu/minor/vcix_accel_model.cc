@@ -37,36 +37,24 @@ const char *const kindNames[] = {"admitted", "capacity", "cycles",
 
 } // anonymous namespace
 
-VcixAccelStats::PortStats::PortStats(statistics::Group *unit,
-    const std::string &name, const std::string &unit_of_work,
-    bool is_primary) :
-    statistics::Group(unit, name.c_str()),
-    isPrimary(is_primary),
+VcixAccelStats::UnitStats::UnitStats(statistics::Group *vcix,
+    const std::string &name, const std::string &port,
+    const std::string &unit_of_work) :
+    statistics::Group(vcix, name.c_str()),
     admitted(this, "admitted", statistics::units::Count::get(),
-        (unit_of_work + " the port admitted").c_str()),
+        (unit_of_work + " admitted at port " + port).c_str()),
     capacity(this, "capacity",
         statistics::units::Rate<statistics::units::Count,
             statistics::units::Cycle>::get(),
-        (unit_of_work + " the port can admit per cycle").c_str()),
+        (unit_of_work + " the unit can admit per cycle").c_str()),
     cycles(this, "cycles", statistics::units::Cycle::get(),
         "cycles the model was ticked, replays after a squash included"),
     occupancy(this, "occupancy", statistics::units::Count::get(),
         (unit_of_work + " held behind the port, summed over cycles").c_str()),
-    primary(this, "primary", statistics::units::Count::get(),
-        "1 if the unit's utilized cycles are this port's, else 0"),
     utilizedCycles(this, "utilized_cycles", statistics::units::Cycle::get(),
         "admitted / capacity, the cycles admitting at full capacity takes")
 {
     utilizedCycles = admitted / capacity;
-}
-
-VcixAccelStats::UnitStats::UnitStats(statistics::Group *vcix,
-    const std::string &name) :
-    statistics::Group(vcix, name.c_str()),
-    name(name),
-    utilizedCycles(this, "utilized_cycles", statistics::units::Cycle::get(),
-        "the utilized cycles of the unit's primary port")
-{
 }
 
 VcixAccelStats::CountStats::CountStats(statistics::Group *vcix,
@@ -75,16 +63,16 @@ VcixAccelStats::CountStats::CountStats(statistics::Group *vcix,
 {
 }
 
-/** Groups the entries into ports by (unit, name) and the COUNT entries into
- *  one group of scalars per unit, in the order the list first names them;
- *  names are matched as statName prints them, two that meet there are fatal */
+/** Groups the entries into units by name and the COUNT entries into one group
+ *  of scalars per unit, in the order the list first names them; names are
+ *  matched as statName prints them, two that meet there are fatal */
 VcixAccelStats::VcixAccelStats(statistics::Group *parent,
     const vcix_model *model, void *self) :
     statistics::Group(parent, "vcix"),
     model(model),
     self(self)
 {
-    struct Port
+    struct Unit
     {
         const vcix_stat *first;
         size_t at[4];
@@ -92,7 +80,7 @@ VcixAccelStats::VcixAccelStats(statistics::Group *parent,
 
     const size_t n = model->num_stats(self);
     std::vector<const vcix_stat *> entries(n);
-    std::vector<Port> ports;
+    std::vector<Unit> found;
     std::vector<std::pair<std::string, std::vector<size_t>>> tallies;
 
     for (size_t i = 0; i < n; i++) {
@@ -123,31 +111,28 @@ VcixAccelStats::VcixAccelStats(statistics::Group *parent,
             continue;
         }
 
-        auto port = std::find_if(ports.begin(), ports.end(),
-            [e](const Port &p) {
-                return statName(p.first->unit) == statName(e->unit) &&
-                    statName(p.first->name) == statName(e->name);
+        auto unit = std::find_if(found.begin(), found.end(),
+            [e](const Unit &u) {
+                return statName(u.first->unit) == statName(e->unit);
             });
-        if (port == ports.end())
-            port = ports.insert(ports.end(), {e, {n, n, n, n}});
-        fatal_if(strcmp(port->first->unit, e->unit) ||
-            strcmp(port->first->name, e->name),
-            "%s: ports %s.%s and %s.%s are both %s.%s as statistics",
-            model->name, port->first->unit, port->first->name, e->unit,
-            e->name, statName(e->unit), statName(e->name));
-        fatal_if(port->at[e->kind] != n,
-            "%s: port %s.%s has two %s entries", model->name, e->unit,
-            e->name, kindNames[e->kind]);
-        fatal_if(e->primary != port->first->primary,
-            "%s: the entries of port %s.%s disagree on primary",
-            model->name, e->unit, e->name);
-        port->at[e->kind] = i;
+        if (unit == found.end())
+            unit = found.insert(found.end(), {e, {n, n, n, n}});
+        fatal_if(strcmp(unit->first->unit, e->unit),
+            "%s: units %s and %s are both %s as statistics", model->name,
+            unit->first->unit, e->unit, statName(e->unit));
+        fatal_if(strcmp(unit->first->name, e->name) ||
+            strcmp(unit->first->unit_of_work, e->unit_of_work),
+            "%s: the entries of unit %s disagree on their port or unit of"
+            " work", model->name, e->unit);
+        fatal_if(unit->at[e->kind] != n, "%s: unit %s has two %s entries",
+            model->name, e->unit, kindNames[e->kind]);
+        unit->at[e->kind] = i;
     }
 
     for (const auto &tally : tallies) {
-        for (const Port &port : ports) {
-            fatal_if(statName(port.first->unit) == tally.first,
-                "%s: %s names both a unit of ports and a unit of counts",
+        for (const Unit &unit : found) {
+            fatal_if(statName(unit.first->unit) == tally.first,
+                "%s: %s names both a unit and a unit of counts",
                 model->name, tally.first);
         }
     }
@@ -156,47 +141,20 @@ VcixAccelStats::VcixAccelStats(statistics::Group *parent,
     constant.assign(n, false);
     base.assign(n, 0);
 
-    for (const Port &port : ports) {
+    for (const Unit &unit : found) {
         for (unsigned kind = 0; kind < 4; kind++) {
-            fatal_if(port.at[kind] == n, "%s: port %s.%s has no %s entry",
-                model->name, port.first->unit, port.first->name,
-                kindNames[kind]);
+            fatal_if(unit.at[kind] == n, "%s: unit %s has no %s entry",
+                model->name, unit.first->unit, kindNames[kind]);
         }
-
-        const std::string unit_name = statName(port.first->unit);
-        auto unit = std::find_if(units.begin(), units.end(),
-            [&unit_name](const std::unique_ptr<UnitStats> &u) {
-                return u->name == unit_name;
-            });
-        if (unit == units.end()) {
-            unsigned primaries = 0;
-            for (const Port &other : ports) {
-                if (statName(other.first->unit) != unit_name)
-                    continue;
-                fatal_if(strcmp(other.first->unit, port.first->unit),
-                    "%s: units %s and %s are both %s as statistics",
-                    model->name, port.first->unit, other.first->unit,
-                    unit_name);
-                primaries += other.first->primary;
-            }
-            fatal_if(primaries != 1, "%s: unit %s has %d primary ports,"
-                " not one", model->name, port.first->unit, primaries);
-            units.push_back(std::make_unique<UnitStats>(this, unit_name));
-            unit = units.end() - 1;
-        }
-
-        auto stats = std::make_unique<PortStats>(unit->get(),
-            statName(port.first->name), port.first->unit_of_work,
-            port.first->primary);
-        scalarOf[port.at[VCIX_STAT_ADMITTED]] = &stats->admitted;
-        scalarOf[port.at[VCIX_STAT_CAPACITY]] = &stats->capacity;
-        scalarOf[port.at[VCIX_STAT_CYCLES]] = &stats->cycles;
-        scalarOf[port.at[VCIX_STAT_OCCUPANCY]] = &stats->occupancy;
-        constant[port.at[VCIX_STAT_CAPACITY]] = true;
-        if (port.first->primary) {
-            (*unit)->utilizedCycles = stats->admitted / stats->capacity;
-        }
-        (*unit)->ports.push_back(std::move(stats));
+        units.push_back(std::make_unique<UnitStats>(this,
+            statName(unit.first->unit), unit.first->name,
+            unit.first->unit_of_work));
+        UnitStats &stats = *units.back();
+        scalarOf[unit.at[VCIX_STAT_ADMITTED]] = &stats.admitted;
+        scalarOf[unit.at[VCIX_STAT_CAPACITY]] = &stats.capacity;
+        scalarOf[unit.at[VCIX_STAT_CYCLES]] = &stats.cycles;
+        scalarOf[unit.at[VCIX_STAT_OCCUPANCY]] = &stats.occupancy;
+        constant[unit.at[VCIX_STAT_CAPACITY]] = true;
     }
 
     for (const auto &[unit, at] : tallies) {
@@ -237,10 +195,6 @@ VcixAccelStats::preDumpStats()
         const double value = constant[i] ? double(values[i]) :
             double(values[i]) - double(base[i]);
         *scalarOf[i] = value;
-    }
-    for (const auto &unit : units) {
-        for (const auto &port : unit->ports)
-            port->primary = port->isPrimary ? 1 : 0;
     }
 }
 

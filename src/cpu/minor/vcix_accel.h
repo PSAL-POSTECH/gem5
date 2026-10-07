@@ -54,23 +54,22 @@ typedef struct vcix_host {
   void (*mem_write)(void *ctx, uint64_t addr, const void *src, size_t bytes);
 } vcix_host;
 
-/* ADMITTED: what a port let in. CAPACITY: what it can per cycle, a constant. CYCLES: the ticks, replays included, plus
-   each room a reset reopened in a cycle. OCCUPANCY: what was held behind it, summed. COUNT: unit "committed", name an
-   encoding's, its commits. Every kind but CAPACITY only grows from create on, reset or not. */
+/* ADMITTED: what a unit's primary port let in. CAPACITY: what it can per cycle, a constant. CYCLES: the ticks, replays
+   included, plus each room a reset reopened in a cycle. OCCUPANCY: what was held behind it, summed. COUNT: unit
+   "committed", name an encoding's, its commits. Every kind but CAPACITY only grows from create on, reset or not. */
 #define VCIX_STAT_ADMITTED 0u
 #define VCIX_STAT_CAPACITY 1u
 #define VCIX_STAT_CYCLES 2u
 #define VCIX_STAT_OCCUPANCY 3u
 #define VCIX_STAT_COUNT 4u
 
-/* A port is the entries of one (unit, name); utilization = ADMITTED / (CAPACITY * CYCLES). primary is 1 on every
-   entry of the one port per unit that is the unit's utilization, 0 elsewhere. Strings live as long as the instance. */
+/* A unit is the four entries of one `unit`, counted at its primary port `name`; its utilization is
+   ADMITTED / (CAPACITY * CYCLES). No other port is listed. Strings live as long as the instance. */
 typedef struct vcix_stat {
   const char *unit;
   const char *name;
   const char *unit_of_work;
   uint32_t kind;
-  uint32_t primary;
 } vcix_stat;
 
 /* Valid while the library is loaded. Read abi_version first, and nothing else if it differs. */
