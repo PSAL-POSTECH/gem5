@@ -20,7 +20,7 @@ namespace minor
 
 /** The statistics a model counts at its ports, as the group 'vcix'. A reset
  *  takes the model's cumulative values as the base; a dump shows each value
- *  less its base, except a port's capacity, which is a constant. */
+ *  less its base, except a port's capacity and primary flag, constants. */
 class VcixAccelStats : public statistics::Group
 {
   public:
@@ -35,12 +35,14 @@ class VcixAccelStats : public statistics::Group
     struct PortStats : public statistics::Group
     {
         PortStats(statistics::Group *unit, const std::string &name,
-            const std::string &unit_of_work);
+            const std::string &unit_of_work, bool is_primary);
 
+        const bool isPrimary;
         statistics::Scalar admitted;
         statistics::Scalar capacity;
         statistics::Scalar cycles;
         statistics::Scalar occupancy;
+        statistics::Scalar primary;
         statistics::Formula utilization;
     };
 
@@ -53,6 +55,13 @@ class VcixAccelStats : public statistics::Group
         std::vector<std::unique_ptr<PortStats>> ports;
     };
 
+    struct CountStats : public statistics::Group
+    {
+        CountStats(statistics::Group *vcix, const std::string &name);
+
+        std::vector<std::unique_ptr<statistics::Scalar>> names;
+    };
+
     /** Each entry's value as of now, cumulative since create */
     std::vector<uint64_t> read() const;
 
@@ -60,11 +69,10 @@ class VcixAccelStats : public statistics::Group
     void *self;
 
     std::vector<std::unique_ptr<UnitStats>> units;
-    std::vector<std::unique_ptr<statistics::Vector>> counts;
+    std::vector<std::unique_ptr<CountStats>> counts;
 
     /** Per entry, the statistic that shows it */
     std::vector<statistics::Scalar *> scalarOf;
-    std::vector<std::pair<statistics::Vector *, size_t>> countOf;
     std::vector<bool> constant;
 
     std::vector<uint64_t> base;

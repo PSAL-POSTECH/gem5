@@ -38,8 +38,10 @@ const char *const kindNames[] = {"admitted", "capacity", "cycles",
 } // anonymous namespace
 
 VcixAccelStats::PortStats::PortStats(statistics::Group *unit,
-    const std::string &name, const std::string &unit_of_work) :
+    const std::string &name, const std::string &unit_of_work,
+    bool is_primary) :
     statistics::Group(unit, name.c_str()),
+    isPrimary(is_primary),
     admitted(this, "admitted", statistics::units::Count::get(),
         (unit_of_work + " the port admitted").c_str()),
     capacity(this, "capacity",
@@ -50,6 +52,8 @@ VcixAccelStats::PortStats::PortStats(statistics::Group *unit,
         "cycles the model was ticked, replays after a squash included"),
     occupancy(this, "occupancy", statistics::units::Count::get(),
         (unit_of_work + " held behind the port, summed over cycles").c_str()),
+    primary(this, "primary", statistics::units::Count::get(),
+        "1 if the unit's utilization is this port's, else 0"),
     utilization(this, "utilization", statistics::units::Ratio::get(),
         "admitted / (capacity * cycles)")
 {
@@ -65,9 +69,15 @@ VcixAccelStats::UnitStats::UnitStats(statistics::Group *vcix,
 {
 }
 
+VcixAccelStats::CountStats::CountStats(statistics::Group *vcix,
+    const std::string &name) :
+    statistics::Group(vcix, name.c_str())
+{
+}
+
 /** Groups the entries into ports by (unit, name) and the COUNT entries into
- *  one vector per unit, both in the order the list first names them; names
- *  are matched as statName prints them, and two that meet there are fatal */
+ *  one group of scalars per unit, in the order the list first names them;
+ *  names are matched as statName prints them, two that meet there are fatal */
 VcixAccelStats::VcixAccelStats(statistics::Group *parent,
     const vcix_model *model, void *self) :
     statistics::Group(parent, "vcix"),
@@ -105,7 +115,7 @@ VcixAccelStats::VcixAccelStats(statistics::Group *parent,
                     "%s: counts %s and %s are both %s as statistics",
                     model->name, entries[j]->unit, e->unit, tally->first);
                 fatal_if(statName(entries[j]->name) == statName(e->name),
-                    "%s: counts %s::%s and %s::%s are both %s::%s as"
+                    "%s: counts %s::%s and %s::%s are both %s.%s as"
                     " statistics", model->name, e->unit, entries[j]->name,
                     e->unit, e->name, tally->first, statName(e->name));
             }
@@ -134,8 +144,15 @@ VcixAccelStats::VcixAccelStats(statistics::Group *parent,
         port->at[e->kind] = i;
     }
 
+    for (const auto &tally : tallies) {
+        for (const Port &port : ports) {
+            fatal_if(statName(port.first->unit) == tally.first,
+                "%s: %s names both a unit of ports and a unit of counts",
+                model->name, tally.first);
+        }
+    }
+
     scalarOf.assign(n, nullptr);
-    countOf.assign(n, {nullptr, 0});
     constant.assign(n, false);
     base.assign(n, 0);
 
@@ -169,7 +186,8 @@ VcixAccelStats::VcixAccelStats(statistics::Group *parent,
         }
 
         auto stats = std::make_unique<PortStats>(unit->get(),
-            statName(port.first->name), port.first->unit_of_work);
+            statName(port.first->name), port.first->unit_of_work,
+            port.first->primary);
         scalarOf[port.at[VCIX_STAT_ADMITTED]] = &stats->admitted;
         scalarOf[port.at[VCIX_STAT_CAPACITY]] = &stats->capacity;
         scalarOf[port.at[VCIX_STAT_CYCLES]] = &stats->cycles;
@@ -183,16 +201,15 @@ VcixAccelStats::VcixAccelStats(statistics::Group *parent,
     }
 
     for (const auto &[unit, at] : tallies) {
-        const std::string desc = std::string(entries[at.front()]->unit_of_work)
-            + " counted, per name";
-        counts.push_back(std::make_unique<statistics::Vector>(this,
-            statName(unit.c_str()).c_str(), statistics::units::Count::get(),
-            desc.c_str()));
-        statistics::Vector &vector = *counts.back();
-        vector.init(at.size());
-        for (size_t j = 0; j < at.size(); j++) {
-            vector.subname(j, statName(entries[at[j]]->name));
-            countOf[at[j]] = {&vector, j};
+        counts.push_back(std::make_unique<CountStats>(this, unit));
+        CountStats &group = *counts.back();
+        for (size_t j : at) {
+            const std::string desc =
+                std::string(entries[j]->unit_of_work) + " counted";
+            group.names.push_back(std::make_unique<statistics::Scalar>(
+                &group, statName(entries[j]->name).c_str(),
+                statistics::units::Count::get(), desc.c_str()));
+            scalarOf[j] = group.names.back().get();
         }
     }
 }
@@ -220,10 +237,11 @@ VcixAccelStats::preDumpStats()
     for (size_t i = 0; i < values.size(); i++) {
         const double value = constant[i] ? double(values[i]) :
             double(values[i]) - double(base[i]);
-        if (scalarOf[i])
-            *scalarOf[i] = value;
-        else
-            (*countOf[i].first)[countOf[i].second] = value;
+        *scalarOf[i] = value;
+    }
+    for (const auto &unit : units) {
+        for (const auto &port : unit->ports)
+            port->primary = port->isPrimary ? 1 : 0;
     }
 }
 
