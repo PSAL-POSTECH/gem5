@@ -177,6 +177,9 @@ class MinorFU : public SimObject
     /** Shared library of the VCIX accelerator model this unit asks */
     std::string vcixModel;
 
+    /** The unit whose busy cycles this FU counts toward, or empty */
+    std::string unit;
+
     /** The machine description of that model, as parallel keys and values */
     std::vector<std::string> vcixConfigKeys;
     std::vector<std::string> vcixConfigValues;
@@ -196,6 +199,7 @@ class MinorFU : public SimObject
         cantForwardFromFUIndices(params.cantForwardFromFUIndices),
         timings(params.timings),
         vcixModel(params.vcixModel),
+        unit(params.unit),
         vcixConfigKeys(params.vcixConfigKeys),
         vcixConfigValues(params.vcixConfigValues),
         vcixMaxInFlight(params.vcixMaxInFlight),

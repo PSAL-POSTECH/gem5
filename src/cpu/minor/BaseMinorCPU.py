@@ -138,6 +138,11 @@ class MinorFU(SimObject):
     vcixModel = Param.String(
         "", "VCIX accelerator model (.so) this unit asks"
     )
+    unit = Param.String(
+        "",
+        "the unit this FU belongs to; cycles in which any FU of the unit is"
+        " occupied are counted as statistics under units.<unit>",
+    )
     vcixConfigKeys = VectorParam.String(
         [], "keys of the machine description the model is configured from"
     )

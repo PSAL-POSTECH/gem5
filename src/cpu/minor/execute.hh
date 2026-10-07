@@ -397,6 +397,43 @@ class Execute : public Named
         IssueStats(MinorCPU *cpu);
         statistics::Vector2d issuedInstType;
     } issueStats;
+
+    /** Per unit named by the FUs' unit parameter, as the group 'units': the
+     *  cycles in which at least one of its FUs holds an instruction */
+    class UnitStats : public statistics::Group
+    {
+      public:
+        /** Fatal if an FU names both a unit and a vcixModel, or a unit
+         *  that is not a statistic name */
+        UnitStats(MinorCPU &cpu, const std::vector<FUPipeline *> &fus);
+
+        /** Once a cycle, after the FUs advance; a cycle the CPU was stopped
+         *  in counts as the last one sampled before it */
+        void sample();
+
+        void preDumpStats() override;
+
+      private:
+        struct Unit : public statistics::Group
+        {
+            Unit(statistics::Group *units, const std::string &name);
+
+            std::string unitName;
+            statistics::Scalar admitted;
+            statistics::Scalar capacity;
+            statistics::Scalar cycles;
+            statistics::Formula utilizedCycles;
+
+            std::vector<const FUPipeline *> fus;
+            bool busy = false;
+        };
+
+        MinorCPU &cpu;
+        std::vector<std::unique_ptr<Unit>> units;
+        Cycles lastSampled;
+    };
+
+    std::unique_ptr<UnitStats> unitStats;
 };
 
 } // namespace minor
