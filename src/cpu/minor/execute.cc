@@ -156,7 +156,7 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
             vcixModels[i] = std::make_unique<VcixAccelModel>(
                 fu_description->vcixModel,
                 fu_description->vcixConfigKeys,
-                fu_description->vcixConfigValues);
+                fu_description->vcixConfigValues, fu_description);
         }
 
         /* Note the total number of instruction slots (for sizing

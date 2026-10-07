@@ -5,9 +5,11 @@
 #define __CPU_MINOR_VCIX_ACCEL_MODEL_HH__
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
+#include "base/statistics.hh"
 #include "cpu/minor/vcix_accel.h"
 
 namespace gem5
@@ -16,13 +18,67 @@ namespace gem5
 namespace minor
 {
 
+/** The statistics a model counts at its ports, as the group 'vcix'. A reset
+ *  takes the model's cumulative values as the base; a dump shows each value
+ *  less its base, except a port's capacity, which is a constant. */
+class VcixAccelStats : public statistics::Group
+{
+  public:
+    /** Fatal if the model's list of statistics breaks vcix_accel.h */
+    VcixAccelStats(statistics::Group *parent, const vcix_model *model,
+        void *self);
+
+    void resetStats() override;
+    void preDumpStats() override;
+
+  private:
+    struct PortStats : public statistics::Group
+    {
+        PortStats(statistics::Group *unit, const std::string &name,
+            const std::string &unit_of_work);
+
+        statistics::Scalar admitted;
+        statistics::Scalar capacity;
+        statistics::Scalar cycles;
+        statistics::Scalar occupancy;
+        statistics::Formula utilization;
+    };
+
+    struct UnitStats : public statistics::Group
+    {
+        UnitStats(statistics::Group *vcix, const std::string &name);
+
+        const std::string name;
+        statistics::Formula utilization;
+        std::vector<std::unique_ptr<PortStats>> ports;
+    };
+
+    /** Each entry's value as of now, cumulative since create */
+    std::vector<uint64_t> read() const;
+
+    const vcix_model *model;
+    void *self;
+
+    std::vector<std::unique_ptr<UnitStats>> units;
+    std::vector<std::unique_ptr<statistics::Vector>> counts;
+
+    /** Per entry, the statistic that shows it */
+    std::vector<statistics::Scalar *> scalarOf;
+    std::vector<std::pair<statistics::Vector *, size_t>> countOf;
+    std::vector<bool> constant;
+
+    std::vector<uint64_t> base;
+};
+
 class VcixAccelModel
 {
   public:
-    /** Fatal if the library cannot be used or the model refuses the keys */
+    /** Fatal if the library cannot be used or the model refuses the keys;
+     *  the model's statistics, if it has any, go under parent */
     VcixAccelModel(const std::string &path,
         const std::vector<std::string> &keys,
-        const std::vector<std::string> &values);
+        const std::vector<std::string> &values,
+        statistics::Group *parent);
 
     ~VcixAccelModel();
 
@@ -85,6 +141,8 @@ class VcixAccelModel
 
     const vcix_model *model;
     void *self;
+
+    std::unique_ptr<VcixAccelStats> stats;
 };
 
 } // namespace minor
