@@ -347,8 +347,8 @@ dumpresetstats(ThreadContext *tc, Tick delay, Tick period)
         return;
 
 
-    Tick when = curTick() + delay * sim_clock::as_int::ns;
-    Tick repeat = period * sim_clock::as_int::ns;
+    Tick when = curTick();
+    Tick repeat = 0;
 
     statistics::schedStatEvent(true, true, when, repeat);
 }
