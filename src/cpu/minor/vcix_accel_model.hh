@@ -43,7 +43,7 @@ class VcixAccelStats : public statistics::Group
         statistics::Scalar cycles;
         statistics::Scalar occupancy;
         statistics::Scalar primary;
-        statistics::Formula utilization;
+        statistics::Formula utilizedCycles;
     };
 
     struct UnitStats : public statistics::Group
@@ -51,7 +51,7 @@ class VcixAccelStats : public statistics::Group
         UnitStats(statistics::Group *vcix, const std::string &name);
 
         const std::string name;
-        statistics::Formula utilization;
+        statistics::Formula utilizedCycles;
         std::vector<std::unique_ptr<PortStats>> ports;
     };
 

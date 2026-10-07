@@ -53,19 +53,19 @@ VcixAccelStats::PortStats::PortStats(statistics::Group *unit,
     occupancy(this, "occupancy", statistics::units::Count::get(),
         (unit_of_work + " held behind the port, summed over cycles").c_str()),
     primary(this, "primary", statistics::units::Count::get(),
-        "1 if the unit's utilization is this port's, else 0"),
-    utilization(this, "utilization", statistics::units::Ratio::get(),
-        "admitted / (capacity * cycles)")
+        "1 if the unit's utilized cycles are this port's, else 0"),
+    utilizedCycles(this, "utilized_cycles", statistics::units::Cycle::get(),
+        "admitted / capacity, the cycles admitting at full capacity takes")
 {
-    utilization = admitted / (capacity * cycles);
+    utilizedCycles = admitted / capacity;
 }
 
 VcixAccelStats::UnitStats::UnitStats(statistics::Group *vcix,
     const std::string &name) :
     statistics::Group(vcix, name.c_str()),
     name(name),
-    utilization(this, "utilization", statistics::units::Ratio::get(),
-        "the utilization of the unit's primary port")
+    utilizedCycles(this, "utilized_cycles", statistics::units::Cycle::get(),
+        "the utilized cycles of the unit's primary port")
 {
 }
 
@@ -194,8 +194,7 @@ VcixAccelStats::VcixAccelStats(statistics::Group *parent,
         scalarOf[port.at[VCIX_STAT_OCCUPANCY]] = &stats->occupancy;
         constant[port.at[VCIX_STAT_CAPACITY]] = true;
         if (port.first->primary) {
-            (*unit)->utilization =
-                stats->admitted / (stats->capacity * stats->cycles);
+            (*unit)->utilizedCycles = stats->admitted / stats->capacity;
         }
         (*unit)->ports.push_back(std::move(stats));
     }
