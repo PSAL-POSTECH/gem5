@@ -2,7 +2,10 @@
 
 #include <dlfcn.h>
 
+#include <algorithm>
+#include <cstring>
 #include <map>
+#include <utility>
 
 #include "base/logging.hh"
 
@@ -11,6 +14,198 @@ namespace gem5
 
 namespace minor
 {
+
+namespace
+{
+
+/** A name as a gem5 statistic: each character outside [A-Za-z0-9_] becomes
+ *  '_', the rule vcix_accel::Instance::stat_name follows */
+std::string
+statName(const char *name)
+{
+    std::string out(name);
+    for (char &c : out) {
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                (c >= '0' && c <= '9') || c == '_'))
+            c = '_';
+    }
+    return out;
+}
+
+const char *const kindNames[] = {"admitted", "capacity", "cycles",
+    "occupancy"};
+
+} // anonymous namespace
+
+VcixAccelStats::PortStats::PortStats(statistics::Group *unit,
+    const std::string &name, const std::string &unit_of_work) :
+    statistics::Group(unit, name.c_str()),
+    admitted(this, "admitted", statistics::units::Count::get(),
+        (unit_of_work + " the port admitted").c_str()),
+    capacity(this, "capacity",
+        statistics::units::Rate<statistics::units::Count,
+            statistics::units::Cycle>::get(),
+        (unit_of_work + " the port can admit per cycle").c_str()),
+    cycles(this, "cycles", statistics::units::Cycle::get(),
+        "cycles the model was ticked, replays after a squash included"),
+    occupancy(this, "occupancy", statistics::units::Count::get(),
+        (unit_of_work + " held behind the port, summed over cycles").c_str()),
+    utilization(this, "utilization", statistics::units::Ratio::get(),
+        "admitted / (capacity * cycles)")
+{
+    utilization = admitted / (capacity * cycles);
+}
+
+VcixAccelStats::UnitStats::UnitStats(statistics::Group *vcix,
+    const std::string &name) :
+    statistics::Group(vcix, name.c_str()),
+    name(name),
+    utilization(this, "utilization", statistics::units::Ratio::get(),
+        "the utilization of the unit's primary port")
+{
+}
+
+/** Groups the entries into ports by (unit, name) and the COUNT entries into
+ *  one vector per unit, both in the order the list first names them */
+VcixAccelStats::VcixAccelStats(statistics::Group *parent,
+    const vcix_model *model, void *self) :
+    statistics::Group(parent, "vcix"),
+    model(model),
+    self(self)
+{
+    struct Port
+    {
+        const vcix_stat *first;
+        size_t at[4];
+    };
+
+    const size_t n = model->num_stats(self);
+    std::vector<const vcix_stat *> entries(n);
+    std::vector<Port> ports;
+    std::vector<std::pair<std::string, std::vector<size_t>>> tallies;
+
+    for (size_t i = 0; i < n; i++) {
+        const vcix_stat *e = model->stat(self, i);
+        fatal_if(!e || !e->unit || !e->name || !e->unit_of_work,
+            "%s: statistic %d of %d is NULL or leaves a name NULL",
+            model->name, i, n);
+        fatal_if(e->kind > VCIX_STAT_COUNT,
+            "%s: statistic %s.%s has the unknown kind %d", model->name,
+            e->unit, e->name, e->kind);
+        entries[i] = e;
+
+        if (e->kind == VCIX_STAT_COUNT) {
+            auto tally = std::find_if(tallies.begin(), tallies.end(),
+                [e](const auto &t) { return t.first == e->unit; });
+            if (tally == tallies.end())
+                tally = tallies.insert(tallies.end(), {e->unit, {}});
+            tally->second.push_back(i);
+            continue;
+        }
+
+        auto port = std::find_if(ports.begin(), ports.end(),
+            [e](const Port &p) {
+                return !strcmp(p.first->unit, e->unit) &&
+                    !strcmp(p.first->name, e->name);
+            });
+        if (port == ports.end())
+            port = ports.insert(ports.end(), {e, {n, n, n, n}});
+        fatal_if(port->at[e->kind] != n,
+            "%s: port %s.%s has two %s entries", model->name, e->unit,
+            e->name, kindNames[e->kind]);
+        fatal_if(e->primary != port->first->primary,
+            "%s: the entries of port %s.%s disagree on primary",
+            model->name, e->unit, e->name);
+        port->at[e->kind] = i;
+    }
+
+    scalarOf.assign(n, nullptr);
+    countOf.assign(n, {nullptr, 0});
+    constant.assign(n, false);
+    base.assign(n, 0);
+
+    for (const Port &port : ports) {
+        for (unsigned kind = 0; kind < 4; kind++) {
+            fatal_if(port.at[kind] == n, "%s: port %s.%s has no %s entry",
+                model->name, port.first->unit, port.first->name,
+                kindNames[kind]);
+        }
+
+        const std::string unit_name = statName(port.first->unit);
+        auto unit = std::find_if(units.begin(), units.end(),
+            [&unit_name](const std::unique_ptr<UnitStats> &u) {
+                return u->name == unit_name;
+            });
+        if (unit == units.end()) {
+            unsigned primaries = 0;
+            for (const Port &other : ports) {
+                primaries += !strcmp(other.first->unit, port.first->unit) &&
+                    other.first->primary;
+            }
+            fatal_if(primaries != 1, "%s: unit %s has %d primary ports,"
+                " not one", model->name, port.first->unit, primaries);
+            units.push_back(std::make_unique<UnitStats>(this, unit_name));
+            unit = units.end() - 1;
+        }
+
+        auto stats = std::make_unique<PortStats>(unit->get(),
+            statName(port.first->name), port.first->unit_of_work);
+        scalarOf[port.at[VCIX_STAT_ADMITTED]] = &stats->admitted;
+        scalarOf[port.at[VCIX_STAT_CAPACITY]] = &stats->capacity;
+        scalarOf[port.at[VCIX_STAT_CYCLES]] = &stats->cycles;
+        scalarOf[port.at[VCIX_STAT_OCCUPANCY]] = &stats->occupancy;
+        constant[port.at[VCIX_STAT_CAPACITY]] = true;
+        if (port.first->primary) {
+            (*unit)->utilization =
+                stats->admitted / (stats->capacity * stats->cycles);
+        }
+        (*unit)->ports.push_back(std::move(stats));
+    }
+
+    for (const auto &[unit, at] : tallies) {
+        const std::string desc = std::string(entries[at.front()]->unit_of_work)
+            + " counted, per name";
+        counts.push_back(std::make_unique<statistics::Vector>(this,
+            statName(unit.c_str()).c_str(), statistics::units::Count::get(),
+            desc.c_str()));
+        statistics::Vector &vector = *counts.back();
+        vector.init(at.size());
+        for (size_t j = 0; j < at.size(); j++) {
+            vector.subname(j, statName(entries[at[j]]->name));
+            countOf[at[j]] = {&vector, j};
+        }
+    }
+}
+
+std::vector<uint64_t>
+VcixAccelStats::read() const
+{
+    std::vector<uint64_t> values(scalarOf.size());
+    model->read_stats(self, values.data());
+    return values;
+}
+
+void
+VcixAccelStats::resetStats()
+{
+    statistics::Group::resetStats();
+    base = read();
+}
+
+void
+VcixAccelStats::preDumpStats()
+{
+    statistics::Group::preDumpStats();
+    const std::vector<uint64_t> values = read();
+    for (size_t i = 0; i < values.size(); i++) {
+        const double value = constant[i] ? double(values[i]) :
+            double(values[i]) - double(base[i]);
+        if (scalarOf[i])
+            *scalarOf[i] = value;
+        else
+            (*countOf[i].first)[countOf[i].second] = value;
+    }
+}
 
 const vcix_model *
 VcixAccelModel::load(const std::string &path)
@@ -46,7 +241,8 @@ VcixAccelModel::load(const std::string &path)
 
 VcixAccelModel::VcixAccelModel(const std::string &path,
     const std::vector<std::string> &keys,
-    const std::vector<std::string> &values) :
+    const std::vector<std::string> &values,
+    statistics::Group *parent) :
     model(load(path))
 {
     fatal_if(keys.size() != values.size(),
@@ -68,6 +264,14 @@ VcixAccelModel::VcixAccelModel(const std::string &path,
     self = model->create(&config, error, sizeof(error));
     if (!self)
         fatal("%s: %s: %s", path, model->name, error);
+
+    if (!model->num_stats)
+        return;
+    fatal_if(!model->stat || !model->read_stats,
+        "%s: the table has num_stats but leaves stat or read_stats NULL",
+        path);
+    if (model->num_stats(self) > 0)
+        stats = std::make_unique<VcixAccelStats>(parent, model, self);
 }
 
 VcixAccelModel::~VcixAccelModel()
