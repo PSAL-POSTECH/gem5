@@ -66,7 +66,8 @@ VcixAccelStats::UnitStats::UnitStats(statistics::Group *vcix,
 }
 
 /** Groups the entries into ports by (unit, name) and the COUNT entries into
- *  one vector per unit, both in the order the list first names them */
+ *  one vector per unit, both in the order the list first names them; names
+ *  are matched as statName prints them, and two that meet there are fatal */
 VcixAccelStats::VcixAccelStats(statistics::Group *parent,
     const vcix_model *model, void *self) :
     statistics::Group(parent, "vcix"),
@@ -96,20 +97,34 @@ VcixAccelStats::VcixAccelStats(statistics::Group *parent,
 
         if (e->kind == VCIX_STAT_COUNT) {
             auto tally = std::find_if(tallies.begin(), tallies.end(),
-                [e](const auto &t) { return t.first == e->unit; });
+                [e](const auto &t) { return t.first == statName(e->unit); });
             if (tally == tallies.end())
-                tally = tallies.insert(tallies.end(), {e->unit, {}});
+                tally = tallies.insert(tallies.end(), {statName(e->unit), {}});
+            for (size_t j : tally->second) {
+                fatal_if(strcmp(entries[j]->unit, e->unit),
+                    "%s: counts %s and %s are both %s as statistics",
+                    model->name, entries[j]->unit, e->unit, tally->first);
+                fatal_if(statName(entries[j]->name) == statName(e->name),
+                    "%s: counts %s::%s and %s::%s are both %s::%s as"
+                    " statistics", model->name, e->unit, entries[j]->name,
+                    e->unit, e->name, tally->first, statName(e->name));
+            }
             tally->second.push_back(i);
             continue;
         }
 
         auto port = std::find_if(ports.begin(), ports.end(),
             [e](const Port &p) {
-                return !strcmp(p.first->unit, e->unit) &&
-                    !strcmp(p.first->name, e->name);
+                return statName(p.first->unit) == statName(e->unit) &&
+                    statName(p.first->name) == statName(e->name);
             });
         if (port == ports.end())
             port = ports.insert(ports.end(), {e, {n, n, n, n}});
+        fatal_if(strcmp(port->first->unit, e->unit) ||
+            strcmp(port->first->name, e->name),
+            "%s: ports %s.%s and %s.%s are both %s.%s as statistics",
+            model->name, port->first->unit, port->first->name, e->unit,
+            e->name, statName(e->unit), statName(e->name));
         fatal_if(port->at[e->kind] != n,
             "%s: port %s.%s has two %s entries", model->name, e->unit,
             e->name, kindNames[e->kind]);
@@ -139,8 +154,13 @@ VcixAccelStats::VcixAccelStats(statistics::Group *parent,
         if (unit == units.end()) {
             unsigned primaries = 0;
             for (const Port &other : ports) {
-                primaries += !strcmp(other.first->unit, port.first->unit) &&
-                    other.first->primary;
+                if (statName(other.first->unit) != unit_name)
+                    continue;
+                fatal_if(strcmp(other.first->unit, port.first->unit),
+                    "%s: units %s and %s are both %s as statistics",
+                    model->name, port.first->unit, other.first->unit,
+                    unit_name);
+                primaries += other.first->primary;
             }
             fatal_if(primaries != 1, "%s: unit %s has %d primary ports,"
                 " not one", model->name, port.first->unit, primaries);
