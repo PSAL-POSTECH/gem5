@@ -37,6 +37,7 @@
 
 #include "cpu/minor/execute.hh"
 
+#include <algorithm>
 #include <functional>
 
 #include "arch/riscv/faults.hh"
@@ -170,6 +171,8 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
 
         funcUnits.push_back(fu);
     }
+
+    unitStats = std::make_unique<UnitStats>(cpu, funcUnits);
 
     /** Check that there is a functional unit for all operation classes */
     for (int op_class = No_OpClass + 1; op_class < Num_OpClasses; op_class++) {
@@ -1853,6 +1856,8 @@ Execute::evaluate()
         }
     }
 
+    unitStats->sample();
+
     bool head_inst_might_commit = false;
 
     /* Could the head in flight insts be committed */
@@ -2208,6 +2213,79 @@ Execute::IssueStats::IssueStats(MinorCPU *cpu)
     issuedInstType.init(cpu->numThreads, enums::Num_OpClass)
         .flags(statistics::total | statistics::pdf | statistics::dist);
     issuedInstType.ysubnames(enums::OpClassStrings);
+}
+
+Execute::UnitStats::Unit::Unit(statistics::Group *units,
+    const std::string &name) :
+    statistics::Group(units, name.c_str()),
+    unitName(name),
+    admitted(this, "admitted", statistics::units::Count::get(),
+        "cycles admitted at port busy"),
+    capacity(this, "capacity",
+        statistics::units::Rate<statistics::units::Count,
+            statistics::units::Cycle>::get(),
+        "cycles the unit can admit per cycle"),
+    cycles(this, "cycles", statistics::units::Cycle::get(),
+        "cycles of the CPU, as its numCycles"),
+    utilizedCycles(this, "utilized_cycles", statistics::units::Cycle::get(),
+        "admitted / capacity, the cycles any FU of the unit was occupied")
+{
+    utilizedCycles = admitted / capacity;
+}
+
+Execute::UnitStats::UnitStats(MinorCPU &cpu,
+    const std::vector<FUPipeline *> &fus) :
+    statistics::Group(&cpu, "units"),
+    cpu(cpu),
+    lastSampled(cpu.curCycle())
+{
+    for (unsigned int i = 0; i < fus.size(); i++) {
+        const std::string &name = fus[i]->description.unit;
+        if (name.empty())
+            continue;
+        fatal_if(!fus[i]->description.vcixModel.empty(),
+            "%s: functional unit %d names both the unit %s and a vcixModel;"
+            " a VCIX unit is counted by its model", cpu.name(), i, name);
+        fatal_if(name.find_first_not_of("abcdefghijklmnopqrstuvwxyz"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") != std::string::npos,
+            "%s: functional unit %d: unit %s is not a statistic name",
+            cpu.name(), i, name);
+        auto unit = std::find_if(units.begin(), units.end(),
+            [&name](const std::unique_ptr<Unit> &u) {
+                return u->unitName == name;
+            });
+        if (unit == units.end())
+            unit = units.insert(units.end(),
+                std::make_unique<Unit>(this, name));
+        (*unit)->fus.push_back(fus[i]);
+    }
+}
+
+void
+Execute::UnitStats::sample()
+{
+    const Cycles now = cpu.curCycle();
+    const Cycles stopped = now > lastSampled ?
+        Cycles(now - lastSampled - 1) : Cycles(0);
+    for (const std::unique_ptr<Unit> &unit : units) {
+        if (unit->busy)
+            unit->admitted += uint64_t(stopped);
+        unit->busy = std::any_of(unit->fus.begin(), unit->fus.end(),
+            [](const FUPipeline *fu) { return fu->occupancy != 0; });
+        if (unit->busy)
+            unit->admitted++;
+    }
+    lastSampled = now;
+}
+
+void
+Execute::UnitStats::preDumpStats()
+{
+    statistics::Group::preDumpStats();
+    for (const std::unique_ptr<Unit> &unit : units) {
+        unit->capacity = 1;
+        unit->cycles = cpu.BaseCPU::baseStats.numCycles.value();
+    }
 }
 
 } // namespace minor
