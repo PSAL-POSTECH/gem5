@@ -54,12 +54,14 @@ typedef struct vcix_host {
   void (*mem_write)(void *ctx, uint64_t addr, const void *src, size_t bytes);
 } vcix_host;
 
-/* What a statistic's value is. CAPACITY is a constant; every other kind only grows from create on, reset or not. */
-#define VCIX_STAT_ADMITTED 0u  /* what a port let in */
-#define VCIX_STAT_CAPACITY 1u  /* what the port can let in per cycle */
-#define VCIX_STAT_CYCLES 2u    /* cycles the instance was ticked, replays after a squash included */
-#define VCIX_STAT_OCCUPANCY 3u /* what was held behind the port, summed over the cycles */
-#define VCIX_STAT_COUNT 4u     /* a plain count: unit "committed", name an encoding's, counts its commits */
+/* ADMITTED: what a port let in. CAPACITY: what it can per cycle, a constant. CYCLES: the ticks, replays included, plus
+   each room a reset reopened in a cycle. OCCUPANCY: what was held behind it, summed. COUNT: unit "committed", name an
+   encoding's, its commits. Every kind but CAPACITY only grows from create on, reset or not. */
+#define VCIX_STAT_ADMITTED 0u
+#define VCIX_STAT_CAPACITY 1u
+#define VCIX_STAT_CYCLES 2u
+#define VCIX_STAT_OCCUPANCY 3u
+#define VCIX_STAT_COUNT 4u
 
 /* A port is the entries of one (unit, name); utilization = ADMITTED / (CAPACITY * CYCLES). primary is 1 on every
    entry of the one port per unit that is the unit's utilization, 0 elsewhere. Strings live as long as the instance. */
@@ -103,7 +105,7 @@ typedef struct vcix_model {
   /* Back to the state create left, statistics aside. May be NULL. */
   void (*reset)(void *self);
 
-  /* The statistics of an instance, asked after create; each may be NULL, and NULL num_stats means none. */
+  /* The statistics of an instance, asked after create. NULL num_stats means none; else stat and read_stats are set. */
   size_t (*num_stats)(void *self);
   /* Entry i < num_stats, the same for the instance's life; NULL past the end. */
   const vcix_stat *(*stat)(void *self, size_t i);
