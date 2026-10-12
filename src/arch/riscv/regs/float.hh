@@ -51,6 +51,7 @@
 
 #include <cstdint>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "base/bitfield.hh"
@@ -240,6 +241,51 @@ f32_to_bf16(float32_t a)
     }
 
     return bf16(result);
+}
+
+/* OCP 8-bit floats (Zvfofp8min).  The element type names the format, which
+   the decoder picks from vtype.altfmt: 0 is E4M3, 1 is E5M2. */
+struct ofp8e4m3_t
+{
+    uint8_t v;
+};
+
+struct ofp8e5m2_t
+{
+    uint8_t v;
+};
+
+template <typename T>
+inline constexpr bool is_ofp8_v =
+    std::is_same_v<T, ofp8e4m3_t> || std::is_same_v<T, ofp8e5m2_t>;
+
+/* f32 -> OFP8 rounded once by softfloat_roundingMode; 'saturate' sends
+   infinite results to the largest finite value of the same sign. */
+template <typename T>
+static inline T
+ofp8_from_f32(float32_t a, bool saturate)
+{
+    static_assert(is_ofp8_v<T>);
+    return {static_cast<uint8_t>(
+        f32_to_ofp8(a, std::is_same_v<T, ofp8e5m2_t>, saturate))};
+}
+
+/* bf16 is exact in f32, so bf16 -> OFP8 also rounds once. */
+template <typename T>
+static inline T
+ofp8_from_bf16(bfloat16_t a, bool saturate)
+{
+    return ofp8_from_f32<T>(bf16_to_f32(a), saturate);
+}
+
+/* OFP8 -> bf16: exact, raises no flag, every NaN becomes 0x7fc0. */
+template <typename T>
+static inline bfloat16_t
+ofp8_to_bf16(T a)
+{
+    static_assert(is_ofp8_v<T>);
+    return bf16(static_cast<uint16_t>(
+        ofp8_to_bf16UI(a.v, std::is_same_v<T, ofp8e5m2_t>)));
 }
 
 namespace float_reg
