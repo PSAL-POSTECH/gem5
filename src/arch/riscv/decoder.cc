@@ -166,6 +166,7 @@ Decoder::decode(PCStateBase &_next_pc)
     emi.vl      = vl;
     emi.vtype8  = vtype & 0xff;
     emi.vill    = vtype.vill;
+    emi.altfmt  = vtype.altfmt;
     emi.rv_type = static_cast<int>(next_pc.rvType());
     emi.enable_zcd = _enableZcd;
 

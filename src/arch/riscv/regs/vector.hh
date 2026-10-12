@@ -75,6 +75,7 @@ inline constexpr RegClass vecRegClass =
 
 BitUnion64(VTYPE)
     Bitfield<63> vill;
+    Bitfield<8> altfmt;
     Bitfield<7, 0> vtype8;
     Bitfield<7> vma;
     Bitfield<6> vta;
