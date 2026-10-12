@@ -178,6 +178,12 @@ let {{
             code += f'template class {class_name}<{type_name}{size}_t>;\n'
         return code
 
+    def declareBf16CvtTemplate(class_name, name):
+        types = ['ofp8e4m3_t', 'ofp8e5m2_t']
+        if '_sat_' not in name:
+            types.append('bfloat16_t')
+        return ''.join(f'template class {class_name}<{t}>;\n' for t in types)
+
     def declareGatherTemplate(class_name, index_type):
         sizes = [8, 16, 32, 64]
         code = ''
@@ -927,7 +933,7 @@ def format VectorFloatWideningFormat(code, category, *flags) {{
 def format VectorFloatWideningCvtFormat(code, category, *flags) {{
     varith_macro_declare = declareVArithTemplate(Name, 'float', 8, 32)
     if "bf16" in name:
-        varith_macro_declare = f"template class {Name}<bfloat16_t>;\n"
+        varith_macro_declare = declareBf16CvtTemplate(Name, name)
 
     iop = InstObjParams(
         name,
@@ -958,7 +964,7 @@ def format VectorFloatWideningCvtFormat(code, category, *flags) {{
     set_vlenb = setVlenb();
 
     if "bf16" in name:
-        varith_micro_declare = f"template class {Name}Micro<bfloat16_t>;\n"
+        varith_micro_declare = declareBf16CvtTemplate(Name + "Micro", name)
     else:
         varith_micro_declare = declareVArithTemplate(
             Name + "Micro", 'float', 8, 32)
@@ -992,7 +998,7 @@ def format VectorFloatWideningCvtFormat(code, category, *flags) {{
 def format VectorFloatNarrowingCvtFormat(code, category, *flags) {{
     varith_macro_declare = declareVArithTemplate(Name, 'float', 8, 32)
     if "bf16" in name:
-        varith_macro_declare = f"template class {Name}<bfloat16_t>;\n"
+        varith_macro_declare = declareBf16CvtTemplate(Name, name)
 
     iop = InstObjParams(
         name,
@@ -1024,7 +1030,7 @@ def format VectorFloatNarrowingCvtFormat(code, category, *flags) {{
     set_vlenb = setVlenb();
 
     if "bf16" in name:
-        varith_micro_declare = f"template class {Name}Micro<bfloat16_t>;\n"
+        varith_micro_declare = declareBf16CvtTemplate(Name + "Micro", name)
     else:
         varith_micro_declare = declareVArithTemplate(
             Name + "Micro", 'float', 8, 32)
@@ -1046,12 +1052,66 @@ def format VectorFloatNarrowingCvtFormat(code, category, *flags) {{
         VectorIntWideningMicroConstructor.subst(microiop) + \
         VectorIntNarrowingMacroConstructor.subst(iop)
     exec_output = VectorFloatNarrowingMicroExecute.subst(microiop)
-    if "bf16" in name:
+    if "bf16" in name and "_sat_" in name:
+        decode_block = VectorOFP8CvtDecodeBlock.subst(iop)
+    elif "bf16" in name:
         decode_block = \
             VectorBFloatWideningAndNarrowingCvtDecodeBlock.subst(iop)
     else:
         decode_block = \
             VectorFloatWideningAndNarrowingCvtDecodeBlock.subst(iop)
+}};
+
+def format VectorFloatQuadNarrowingCvtFormat(code, category, *flags) {{
+    types = ['ofp8e4m3_t', 'ofp8e5m2_t']
+    iop = InstObjParams(
+        name,
+        Name,
+        'VectorArithMacroInst',
+        {'code': code,
+         'declare_varith_template':
+            ''.join(f'template class {Name}<{t}>;\n' for t in types)},
+        flags
+    )
+
+    dest_reg_id = "vecRegClass[_machInst.vd + _microIdx / 4]"
+    src2_reg_id = "vecRegClass[(_copyVs2 ? VecMemInternalReg0 : _machInst.vs2)\
+                               + _microIdx]"
+
+    set_dest_reg_idx = setDestWrapper(dest_reg_id)
+
+    set_src_reg_idx = ""
+    set_src_reg_idx += setSrcWrapper(src2_reg_id)
+    set_src_reg_idx += setSrcVm()
+    code = maskCondWrapper(code)
+    code = eiDeclarePrefix(code, widening=True)
+    code = loopWrapper(code)
+    code = fflags_wrapper(code)
+
+    vm_decl_rd = vmDeclAndReadData()
+
+    set_vlenb = setVlenb();
+
+    microiop = InstObjParams(name + "_micro",
+        Name + "Micro",
+        'VectorArithMicroInst',
+        {'code': code,
+         'set_dest_reg_idx': set_dest_reg_idx,
+         'set_src_reg_idx': set_src_reg_idx,
+         'set_vlenb': set_vlenb,
+         'vm_decl_rd': vm_decl_rd,
+         'declare_varith_template':
+            ''.join(f'template class {Name}Micro<{t}>;\n' for t in types)},
+        flags)
+
+    header_output = \
+        VectorFloatCvtMicroDeclare.subst(microiop) + \
+        VectorFloatCvtMacroDeclare.subst(iop)
+    decoder_output = \
+        VectorIntWideningMicroConstructor.subst(microiop) + \
+        VectorQuadNarrowingMacroConstructor.subst(iop)
+    exec_output = VectorFloatQuadNarrowingMicroExecute.subst(microiop)
+    decode_block = VectorOFP8QuadNarrowingCvtDecodeBlock.subst(iop)
 }};
 
 def format VectorFloatMaskFormat(code, category, *flags) {{
