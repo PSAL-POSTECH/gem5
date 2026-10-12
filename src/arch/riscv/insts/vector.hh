@@ -192,6 +192,33 @@ protected:
     }
 };
 
+/* An encoding that is illegal under the current vtype (e.g. an SEW=8-only
+   convert at another SEW): decodes to this and raises IllegalInstFault. */
+class VectorIllegalInst : public RiscvStaticInst
+{
+  private:
+    const std::string reason;
+
+  public:
+    VectorIllegalInst(const char *_mnemonic, ExtMachInst _machInst,
+                      const std::string &_reason)
+        : RiscvStaticInst(_mnemonic, _machInst, No_OpClass), reason(_reason)
+    {}
+
+    Fault
+    execute(ExecContext *, trace::InstRecord *) const override
+    {
+        return std::make_shared<IllegalInstFault>(reason, machInst);
+    }
+
+    std::string
+    generateDisassembly(Addr pc,
+                        const loader::SymbolTable *symtab) const override
+    {
+        return mnemonic;
+    }
+};
+
 class VectorNopMicroInst : public RiscvMicroInst
 {
 protected:

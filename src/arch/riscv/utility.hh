@@ -81,6 +81,8 @@ template <> struct double_width<bfloat16_t>
     using type = float32_t;
 };
 template<> struct double_width<float8_t>    { using type = float16_t;};
+template<> struct double_width<ofp8e4m3_t>  { using type = bfloat16_t;};
+template<> struct double_width<ofp8e5m2_t>  { using type = bfloat16_t;};
 
 template<typename Type> struct double_widthf;
 template<> struct double_widthf<uint32_t>    { using type = float64_t;};
@@ -332,6 +334,8 @@ ftype(IntType a) -> FloatType
 {
     if constexpr (std::is_same_v<bfloat16_t, FloatType>) {
         return bf16(a);
+    } else if constexpr (is_ofp8_v<FloatType>) {
+        return FloatType{a};
     } else if constexpr (std::is_same_v<uint32_t, IntType>) {
         return f32(a);
     } else if constexpr (std::is_same_v<uint64_t, IntType>) {
@@ -740,6 +744,8 @@ f_to_wf(FloatType a)
         return f16_to_f32(a);
     else if constexpr (std::is_same_v<bfloat16_t, FloatType>) {
         return bf16_to_f32(a);
+    } else if constexpr (is_ofp8_v<FloatType>) {
+        return ofp8_to_bf16(a);
     }
     GEM5_UNREACHABLE;
 }
@@ -758,8 +764,22 @@ f_to_nf(FloatType a)
         } else {
             return f32_to_f16(a);
         }
+    } else if constexpr (std::is_same_v<bfloat16_t, FloatType> &&
+                         is_ofp8_v<FloatNType>) {
+        return ofp8_from_bf16<FloatNType>(a, false);
     }
     GEM5_UNREACHABLE;
+}
+
+/* bf16 -> OFP8 whose infinite results saturate (vfncvtbf16.sat.f.f.w). */
+template<
+    typename FloatNType,
+    typename FloatType = typename double_width<FloatNType>::type
+> FloatNType
+f_to_nf_sat(FloatType a)
+{
+    static_assert(is_ofp8_v<FloatNType>);
+    return ofp8_from_bf16<FloatNType>(a, true);
 }
 
 //ref:  https://locklessinc.com/articles/sat_arithmetic/
