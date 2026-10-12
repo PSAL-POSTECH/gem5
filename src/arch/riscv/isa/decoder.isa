@@ -4166,6 +4166,21 @@ decode QUADRANT default Unknown::unknown() {
                                 ftype<ewt>(Vs2_vwu[i]),
                                 softfloat_round_minMag);
                         }}, OPFVV, SimdFloatCvtOp);
+                        0x1f: vfncvtbf16_sat_f_f_w({{
+                            auto fd = f_to_nf_sat<et>(
+                                ftype<ewt>(Vs2_vwu[i]));
+                            Vd_vu[i + offset] = fd.v;
+                        }}, OPFVV, SimdFloatCvtOp);
+                    }
+                    format VectorFloatQuadNarrowingCvtFormat {
+                        0x19: vfncvt_f_f_q({{
+                            Vd_vu[i + offset] =
+                                ofp8_from_f32<et>(f32(Vs2_uw[i]), false).v;
+                        }}, OPFVV, SimdFloatCvtOp);
+                        0x1b: vfncvt_sat_f_f_q({{
+                            Vd_vu[i + offset] =
+                                ofp8_from_f32<et>(f32(Vs2_uw[i]), true).v;
+                        }}, OPFVV, SimdFloatCvtOp);
                     }
                 }
                 0x13: decode VS1 {

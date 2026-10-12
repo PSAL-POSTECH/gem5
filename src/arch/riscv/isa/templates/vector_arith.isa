@@ -903,9 +903,155 @@ default: GEM5_UNREACHABLE;
 def template VectorBFloatWideningAndNarrowingCvtDecodeBlock {{
 
 switch(machInst.vtype8.vsew) {
+case 0b000:
+    if (machInst.vill)
+        return new VectorIllegalInst("%(mnemonic)s", machInst, "VILL is set");
+    if (machInst.altfmt)
+        return new %(class_name)s<ofp8e5m2_t>(machInst, elen, vlen);
+    return new %(class_name)s<ofp8e4m3_t>(machInst, elen, vlen);
 case 0b001: return new %(class_name)s<bfloat16_t>(machInst, elen, vlen);
 default: GEM5_UNREACHABLE;
 }
+
+}};
+
+// Zvfofp8min instructions defined only at SEW=8; vtype.altfmt picks E5M2.
+def template VectorOFP8CvtDecodeBlock {{
+
+if (machInst.vill)
+    return new VectorIllegalInst("%(mnemonic)s", machInst, "VILL is set");
+if (machInst.vtype8.vsew != 0b000)
+    return new VectorIllegalInst("%(mnemonic)s", machInst,
+                                 "%(mnemonic)s requires SEW=8");
+if (machInst.altfmt)
+    return new %(class_name)s<ofp8e5m2_t>(machInst, elen, vlen);
+return new %(class_name)s<ofp8e4m3_t>(machInst, elen, vlen);
+
+}};
+
+// vd (EEW=8, LMUL) <- vs2 (EEW=32, EMUL=4*LMUL): LMUL<=2, both groups
+// aligned, v0 not a masked vd, and vd may overlap vs2 only at vs2 itself.
+def template VectorOFP8QuadNarrowingCvtDecodeBlock {{
+
+{
+    const int64_t vlmul = vtype_vlmul(machInst.vtype8);
+    const uint32_t vd_regs = 1 << std::max<int64_t>(0, vlmul);
+    const uint32_t vs2_regs = 1 << std::max<int64_t>(0, vlmul + 2);
+    const char *illegal = nullptr;
+    if (machInst.vill)
+        illegal = "VILL is set";
+    else if (machInst.vtype8.vsew != 0b000)
+        illegal = "%(mnemonic)s requires SEW=8";
+    else if (vlmul > 1)
+        illegal = "%(mnemonic)s requires LMUL<=2";
+    else if (machInst.vs2 % vs2_regs != 0 || machInst.vd % vd_regs != 0)
+        illegal = "Unaligned register group in quad-narrowing op";
+    else if (!machInst.vm && machInst.vd == 0)
+        illegal = "Masked quad-narrowing op writes v0";
+    else if (machInst.vd != machInst.vs2 &&
+             machInst.vd < machInst.vs2 + vs2_regs &&
+             machInst.vs2 < machInst.vd + vd_regs)
+        illegal = "Unsupported overlap in VS2 and VD for quad-narrowing op";
+    if (illegal)
+        return new VectorIllegalInst("%(mnemonic)s", machInst, illegal);
+    if (machInst.altfmt)
+        return new %(class_name)s<ofp8e5m2_t>(machInst, elen, vlen);
+    return new %(class_name)s<ofp8e4m3_t>(machInst, elen, vlen);
+}
+
+}};
+
+// One micro-op per vs2 register; four of them fill one vd register, each
+// a quarter, behind a VPinVd sized to the writes that actually follow.
+def template VectorQuadNarrowingMacroConstructor {{
+
+template<typename ElemType>
+%(class_name)s<ElemType>::%(class_name)s(ExtMachInst _machInst, uint32_t _elen,
+                                         uint32_t _vlen)
+    : %(base_class)s("%(mnemonic)s", _machInst, %(op_class)s, _elen, _vlen)
+{
+    %(set_reg_idx_arr)s;
+    %(constructor)s;
+    const int64_t vlmul = vtype_vlmul(_machInst.vtype8);
+    const int32_t num_microops = 1 << std::max<int64_t>(0, vlmul + 2);
+
+    int32_t tmp_vl = this->vl;
+    const int32_t micro_vlmax = std::min<int32_t>(
+        vtype_VLMAX(_machInst.vtype8, vlen, true), vlen / 32);
+    int32_t micro_vl = std::min(tmp_vl, micro_vlmax);
+    StaticInstPtr microop;
+
+    if (micro_vl == 0) {
+        microop = new VectorNopMicroInst(_machInst);
+        this->microops.push_back(microop);
+    }
+
+    bool copy_vs2 = (machInst.vd == machInst.vs2);
+    if (copy_vs2) {
+        microop = new VCpyVsMicroInst(machInst, 0, machInst.vs2, elen, vlen);
+        microop->setFlag(IsDelayedCommit);
+        this->microops.push_back(microop);
+    }
+
+    for (int i = 0; i < num_microops && micro_vl > 0; ++i) {
+        if (i % 4 == 0) {
+            const int32_t writes = std::min({4, num_microops - i,
+                (tmp_vl + micro_vlmax - 1) / micro_vlmax});
+            microop = new VPinVdMicroInst(machInst, i / 4, writes, elen, vlen);
+            microop->setFlag(IsDelayedCommit);
+            this->microops.push_back(microop);
+        }
+
+        microop = new %(class_name)sMicro<ElemType>(_machInst, micro_vl, i,
+                                                    _elen, _vlen, false,
+                                                    copy_vs2);
+        microop->setDelayedCommit();
+        this->microops.push_back(microop);
+        micro_vl = std::min(tmp_vl -= micro_vlmax, micro_vlmax);
+
+        copy_vs2 = false;
+    }
+
+    this->microops.front()->setFirstMicroop();
+    this->microops.back()->setLastMicroop();
+}
+
+%(declare_varith_template)s;
+
+}};
+
+def template VectorFloatQuadNarrowingMicroExecute {{
+
+template <typename ElemType>
+Fault
+%(class_name)s<ElemType>::execute(ExecContext* xc,
+                                  trace::InstRecord* traceData) const
+{
+    using et = ElemType;
+    using vu [[maybe_unused]] = decltype(et::v);
+
+    bool set_dirty = true;
+    bool check_vill = true;
+    Fault update_fault = updateVPUStatus(xc, machInst, set_dirty, check_vill);
+    if (update_fault != NoFault) { return update_fault; }
+
+    VRM_REQUIRED;
+
+    %(op_decl)s;
+    %(op_rd)s;
+    %(set_vlenb)s;
+
+    const int32_t micro_vlmax = std::min<int32_t>(
+        vtype_VLMAX(machInst.vtype8, vlen, true), vlen / 32);
+    [[maybe_unused]] const size_t offset = (this->microIdx % 4) * micro_vlmax;
+
+    %(vm_decl_rd)s;
+    %(code)s;
+    %(op_wb)s;
+    return NoFault;
+}
+
+%(declare_varith_template)s;
 
 }};
 
