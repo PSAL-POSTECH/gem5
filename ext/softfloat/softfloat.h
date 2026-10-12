@@ -196,6 +196,8 @@ uint_fast64_t f32_to_ui64_r_minMag( float32_t, bool );
 int_fast32_t f32_to_i32_r_minMag( float32_t, bool );
 int_fast64_t f32_to_i64_r_minMag( float32_t, bool );
 float16_t f32_to_f16( float32_t );
+uint_fast8_t f32_to_ofp8( float32_t, bool, bool );
+uint_fast16_t ofp8_to_bf16UI( uint_fast8_t, bool );
 float64_t f32_to_f64( float32_t );
 #ifdef SOFTFLOAT_FAST_INT64
 extFloat80_t f32_to_extF80( float32_t );
