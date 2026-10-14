@@ -27,9 +27,9 @@
  */
 
 /**
- * A scratchpad with load_ports reads and store_ports writes per cycle,
- * shared by all its response ports, answered after a fixed latency.
- * It refuses only when this cycle's ports of the access's kind are taken.
+ * A scratchpad with load_ports reads, store_ports writes and access_ports
+ * accesses in total per cycle, shared by all its response ports, answered
+ * after a fixed latency. It refuses only when one of those caps is reached.
  */
 
 #ifndef __MEM_MULTIPORT_SCRATCHPAD_HH__
@@ -89,6 +89,7 @@ class MultiPortScratchpad : public AbstractMemory
 
     const unsigned loadPorts;
     const unsigned storePorts;
+    const unsigned accessPorts;
     const Cycles latency;
 
     /** The cycle the counts below belong to. */
@@ -115,8 +116,10 @@ class MultiPortScratchpad : public AbstractMemory
         statistics::Scalar stores;
         statistics::Scalar loadRefusals;
         statistics::Scalar storeRefusals;
+        statistics::Scalar accessRefusals;
         statistics::Distribution loadsPerCycle;
         statistics::Distribution storesPerCycle;
+        statistics::Distribution accessesPerCycle;
     } stats;
 
   public:

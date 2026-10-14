@@ -44,12 +44,14 @@ MultiPortScratchpad::MultiPortScratchpad(
         const MultiPortScratchpadParams &p) :
     AbstractMemory(p),
     loadPorts(p.load_ports), storePorts(p.store_ports),
+    accessPorts(p.access_ports),
     latency(p.latency), window(0),
     retryEvent([this]{ sendRetries(); }, name() + ".retry"),
     stats(*this)
 {
-    fatal_if(loadPorts == 0 || storePorts == 0,
-             "%s: load_ports and store_ports must be at least 1", name());
+    fatal_if(loadPorts == 0 || storePorts == 0 || accessPorts == 0,
+             "%s: load_ports, store_ports and access_ports must be at "
+             "least 1", name());
     for (int i = 0; i < p.port_port_connection_count; ++i) {
         ports.emplace_back(new MemoryPort(
             csprintf("%s.port[%d]", name(), i), *this, i));
@@ -75,6 +77,7 @@ MultiPortScratchpad::rollWindow()
     if (loadsThisCycle || storesThisCycle) {
         stats.loadsPerCycle.sample(loadsThisCycle);
         stats.storesPerCycle.sample(storesThisCycle);
+        stats.accessesPerCycle.sample(loadsThisCycle + storesThisCycle);
     }
     loadsThisCycle = storesThisCycle = 0;
     window = now;
@@ -96,14 +99,21 @@ MultiPortScratchpad::recvTimingReq(PacketPtr pkt, MemoryPort &port)
     rollWindow();
     const bool is_write = pkt->isWrite();
     unsigned &used = is_write ? storesThisCycle : loadsThisCycle;
-    if (used >= (is_write ? storePorts : loadPorts)) {
-        if (is_write)
+    const bool kind_full = used >= (is_write ? storePorts : loadPorts);
+    const bool access_full =
+        loadsThisCycle + storesThisCycle >= accessPorts;
+    if (kind_full || access_full) {
+        if (kind_full && is_write)
             stats.storeRefusals++;
-        else
+        else if (kind_full)
             stats.loadRefusals++;
+        else
+            stats.accessRefusals++;
         DPRINTF(MultiPortScratchpad, "port[%d] %s %#llx refused, %d %s "
-                "ports taken this cycle\n", port.id, pkt->cmdString(),
-                pkt->getAddr(), used, is_write ? "store" : "load");
+                "and %d access ports taken this cycle\n", port.id,
+                pkt->cmdString(), pkt->getAddr(), used,
+                is_write ? "store" : "load",
+                loadsThisCycle + storesThisCycle);
         port.needsRetry = true;
         if (!retryEvent.scheduled())
             schedule(retryEvent, clockEdge(Cycles(1)));
@@ -296,10 +306,16 @@ MultiPortScratchpad::ScratchpadStats::ScratchpadStats(
                "Reads refused: the cycle's load ports were taken"),
       ADD_STAT(storeRefusals, statistics::units::Count::get(),
                "Writes refused: the cycle's store ports were taken"),
+      ADD_STAT(accessRefusals, statistics::units::Count::get(),
+               "Reads and writes refused with their kind's ports free: "
+               "the cycle's access ports were taken"),
       ADD_STAT(loadsPerCycle, statistics::units::Count::get(),
                "Reads accepted per cycle, over cycles with any access"),
       ADD_STAT(storesPerCycle, statistics::units::Count::get(),
-               "Writes accepted per cycle, over cycles with any access")
+               "Writes accepted per cycle, over cycles with any access"),
+      ADD_STAT(accessesPerCycle, statistics::units::Count::get(),
+               "Reads and writes accepted per cycle, over cycles with any "
+               "access")
 {
 }
 
@@ -309,6 +325,7 @@ MultiPortScratchpad::ScratchpadStats::regStats()
     statistics::Group::regStats();
     loadsPerCycle.init(0, mem.loadPorts, 1);
     storesPerCycle.init(0, mem.storePorts, 1);
+    accessesPerCycle.init(0, mem.accessPorts, 1);
 }
 
 } // namespace memory

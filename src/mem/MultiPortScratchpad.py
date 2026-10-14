@@ -29,9 +29,10 @@ from m5.params import *
 
 
 class MultiPortScratchpad(AbstractMemory):
-    # A scratchpad with a number of load and store ports per cycle of its
+    # A scratchpad with load, store and total access ports per cycle of its
     # clock: any address, a fixed latency, refused only when this cycle's
-    # ports of the access's kind are taken (retried at the next edge).
+    # ports of the access's kind or its access ports are taken (retried at
+    # the next edge).
     type = "MultiPortScratchpad"
     cxx_header = "mem/multiport_scratchpad.hh"
     cxx_class = "gem5::memory::MultiPortScratchpad"
@@ -41,4 +42,7 @@ class MultiPortScratchpad(AbstractMemory):
     )
     load_ports = Param.Unsigned(3, "Reads accepted per cycle")
     store_ports = Param.Unsigned(2, "Writes accepted per cycle")
+    access_ports = Param.Unsigned(
+        4, "Reads and writes together accepted per cycle"
+    )
     latency = Param.Cycles(1, "Request to response, in cycles of clk_domain")
