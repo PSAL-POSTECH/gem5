@@ -183,6 +183,7 @@ System::System(const Params &p)
       _m5opRange(p.m5ops_base ?
                  RangeSize(p.m5ops_base, 0x10000) :
                  AddrRange(1, 0)), // Create an empty range if disabled
+      sampleStats(this),
       redirectPaths(p.redirect_paths)
 {
     panic_if(!workload, "No workload set for system %s "
@@ -213,6 +214,32 @@ System::System(const Params &p)
     // Set back pointers to the system in all memories
     for (int x = 0; x < params().memories.size(); x++)
         params().memories[x]->system(this);
+}
+
+System::SampleStats::SampleStats(statistics::Group *parent)
+    : statistics::Group(parent, "sample"),
+      ADD_STAT(tileId, statistics::units::Unspecified::get(),
+               "Tile id the resetstats opening this dump passed, or -1"),
+      ADD_STAT(call, statistics::units::Unspecified::get(),
+               "Call index the resetstats opening this dump passed, or -1")
+{
+}
+
+void
+System::SampleStats::mark(uint64_t tile_id, uint64_t call_index)
+{
+    markedTileId = tile_id;
+    markedCall = call_index;
+}
+
+void
+System::SampleStats::preDumpStats()
+{
+    statistics::Group::preDumpStats();
+    tileId = markedTileId;
+    call = markedCall;
+    markedTileId = -1;
+    markedCall = -1;
 }
 
 System::~System()

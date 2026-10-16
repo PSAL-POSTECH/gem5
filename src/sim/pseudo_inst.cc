@@ -311,12 +311,13 @@ initParam(ThreadContext *tc, uint64_t key_str1, uint64_t key_str2)
 
 
 void
-resetstats(ThreadContext *tc, Tick delay, Tick period)
+resetstats(ThreadContext *tc, uint64_t tile_id, uint64_t call)
 {
-    DPRINTF(PseudoInst, "pseudo_inst::resetstats(%i, %i)\n", delay, period);
+    DPRINTF(PseudoInst, "pseudo_inst::resetstats(%i, %i)\n", tile_id, call);
     if (!tc->getCpuPtr()->params().do_statistics_insts)
         return;
 
+    tc->getSystemPtr()->sampleStats.mark(tile_id, call);
 
     Tick when = curTick();
     Tick repeat = 0;
