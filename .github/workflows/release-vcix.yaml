@@ -1,7 +1,9 @@
 name: Release gem5 for vcix-accelerator
 
 # A vcix-v* tag builds build/RISCV/gem5.opt in the system packages of the vcix-accelerator image and
-# publishes it, with configs/, as the release of that tag.
+# publishes it, with configs/, as the release of that tag -- once per host architecture, as
+# gem5-vcix-x86_64.tar.gz and gem5-vcix-aarch64.tar.gz (named after `uname -m`), each built natively
+# on the big runner of its architecture.
 
 on:
   push:
@@ -14,12 +16,17 @@ permissions:
 env:
   SETUP_URL: https://raw.githubusercontent.com/PSAL-POSTECH/vcix-accelerator/main/setup
   SCONS_VERSION: 4.7.0
-  ASSET: gem5-vcix-x86_64.tar.gz
 
 jobs:
   release:
-    runs-on: [self-hosted, slurm, big, x86_64]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    runs-on: [self-hosted, slurm, big, "${{ matrix.arch }}"]
     timeout-minutes: 110
+    env:
+      ASSET: gem5-vcix-${{ matrix.arch }}.tar.gz
     container:
       image: ubuntu:22.04
 
@@ -55,6 +62,8 @@ jobs:
           tar -czf "$ASSET" build/RISCV/gem5.opt configs
           sha256sum "$ASSET" | tee "$ASSET.sha256"
 
+      # The action upserts: whichever architecture arrives first creates the release, the other adds
+      # its asset to it.
       - name: Publish the release
         uses: softprops/action-gh-release@v2
         with:
