@@ -589,6 +589,22 @@ class System : public SimObject, public PCEventScope
     std::map<std::pair<uint32_t, uint32_t>, Tick>  lastWorkItemStarted;
     std::map<uint32_t, statistics::Histogram*> workItemStats;
 
+    /**
+     * The tile id and call index the last resetstats passed in a0 and a1,
+     * shown by the next statistics dump and then forgotten: -1 if none.
+     */
+    struct SampleStats : public statistics::Group
+    {
+        SampleStats(statistics::Group *parent);
+        void mark(uint64_t tile_id, uint64_t call_index);
+        void preDumpStats() override;
+
+        int64_t markedTileId = -1;
+        int64_t markedCall = -1;
+        statistics::Scalar tileId;
+        statistics::Scalar call;
+    } sampleStats;
+
     ////////////////////////////////////////////
     //
     // STATIC GLOBAL SYSTEM LIST

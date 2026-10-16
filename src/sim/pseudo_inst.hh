@@ -102,7 +102,7 @@ void m5exit(ThreadContext *tc, Tick delay);
 void m5fail(ThreadContext *tc, Tick delay, uint64_t code);
 uint64_t m5sum(ThreadContext *tc, uint64_t a, uint64_t b, uint64_t c,
                                   uint64_t d, uint64_t e, uint64_t f);
-void resetstats(ThreadContext *tc, Tick delay, Tick period);
+void resetstats(ThreadContext *tc, uint64_t tile_id, uint64_t call);
 void dumpstats(ThreadContext *tc, Tick delay, Tick period);
 void dumpresetstats(ThreadContext *tc, Tick delay, Tick period);
 void m5checkpoint(ThreadContext *tc, Tick delay, Tick period);
