@@ -72,6 +72,7 @@ Fetch2::Fetch2(const std::string &name,
     nextStageReserve(next_stage_input_buffer),
     outputWidth(params.decodeInputWidth),
     processMoreThanOneInput(params.fetch2CycleInput),
+    keepSequentialPredictions(params.fetch2KeepSequentialPredictions),
     branchPredictor(*params.branchPred),
     fetchInfo(params.numThreads),
     threadPriority(0), stats(&cpu_)
@@ -209,6 +210,22 @@ Fetch2::predictBranch(MinorDynInstPtr inst, BranchData &branch)
             set(branch.target, *inst_pc);
             inst->predictedTaken = true;
             set(inst->predictedTarget, inst_pc);
+        }
+
+        /* A taken prediction to the instruction that follows (thread.pc
+         *  has just been advanced past this one) needs no new stream: the
+         *  rest of the line is still the right code, so decoding goes on
+         *  with the predicted PC state.  Execute still checks the
+         *  prediction as for any other. */
+        if (keepSequentialPredictions && inst->predictedTaken &&
+            inst->predictedTarget->instAddr() == thread.pc->instAddr() &&
+            inst->predictedTarget->microPC() == 0) {
+            set(thread.pc, *inst->predictedTarget);
+            stats.sequentialPredictions++;
+            DPRINTF(Branch, "Branch predicted taken to the next"
+                " instruction, stream kept: %s target: %s\n",
+                *inst, *inst->predictedTarget);
+            return;
         }
     } else {
         DPRINTF(Branch, "Not attempting prediction for inst: %s\n", *inst);
@@ -619,7 +636,10 @@ Fetch2::Fetch2Stats::Fetch2Stats(MinorCPU *cpu)
       ADD_STAT(storeInstructions, statistics::units::Count::get(),
                "Number of memory store instructions successfully decoded"),
       ADD_STAT(amoInstructions, statistics::units::Count::get(),
-               "Number of memory atomic instructions successfully decoded")
+               "Number of memory atomic instructions successfully decoded"),
+      ADD_STAT(sequentialPredictions, statistics::units::Count::get(),
+               "Number of taken predictions to the next instruction that"
+               " kept the fetch stream")
 {
     totalInstructions.flags(statistics::total);
     intInstructions.flags(statistics::total);
@@ -628,6 +648,7 @@ Fetch2::Fetch2Stats::Fetch2Stats(MinorCPU *cpu)
     loadInstructions.flags(statistics::total);
     storeInstructions.flags(statistics::total);
     amoInstructions.flags(statistics::total);
+    sequentialPredictions.flags(statistics::total);
 }
 
 void

@@ -91,6 +91,10 @@ class Fetch2 : public Named
      *  there is room in the output to contain its processed data */
     bool processMoreThanOneInput;
 
+    /** If true, a branch predicted taken to the next sequential
+     *  instruction keeps the stream and only replaces the PC state */
+    bool keepSequentialPredictions;
+
     /** Branch predictor passed from Python configuration */
     branch_prediction::BPredUnit &branchPredictor;
 
@@ -171,6 +175,7 @@ class Fetch2 : public Named
         statistics::Scalar loadInstructions;
         statistics::Scalar storeInstructions;
         statistics::Scalar amoInstructions;
+        statistics::Scalar sequentialPredictions;
     } stats;
 
   protected:

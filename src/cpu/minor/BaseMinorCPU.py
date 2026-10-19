@@ -380,6 +380,13 @@ class BaseMinorCPU(BaseCPU):
         "Allow Fetch2 to cross input lines to generate full output each"
         " cycle",
     )
+    fetch2KeepSequentialPredictions = Param.Bool(
+        False,
+        "A branch predicted taken to the instruction that follows it does"
+        " not change the fetch stream: Fetch2 goes on decoding the line with"
+        " the predicted PC state (e.g. RISC-V vset*, whose target carries"
+        " the new vtype and vl)",
+    )
 
     decodeInputBufferSize = Param.Unsigned(
         3, "Size of input buffer to Decode in cycles-worth of insts."
