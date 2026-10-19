@@ -176,6 +176,7 @@ class Fetch2 : public Named
         statistics::Scalar storeInstructions;
         statistics::Scalar amoInstructions;
         statistics::Scalar sequentialPredictions;
+        statistics::Scalar sequentialDirectBranches;
     } stats;
 
   protected:

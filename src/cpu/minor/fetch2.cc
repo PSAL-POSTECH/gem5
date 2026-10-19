@@ -195,6 +195,26 @@ Fetch2::predictBranch(MinorDynInstPtr inst, BranchData &branch)
 
     assert(!inst->predictedTaken);
 
+    /* A direct unconditional branch to the instruction that follows needs
+     *  no prediction: its target, PC state included (e.g. a RISC-V vset*
+     *  whose new vtype and vl are known here), is taken at decode and the
+     *  stream is kept.  Execute still checks it as a prediction */
+    if (keepSequentialPredictions && inst->staticInst->isDirectCtrl() &&
+        inst->staticInst->isUncondCtrl()) {
+        std::unique_ptr<PCStateBase> target =
+            inst->staticInst->branchTarget(*inst->pc);
+        if (target->instAddr() == thread.pc->instAddr() &&
+            target->microPC() == 0) {
+            inst->predictedTaken = true;
+            set(inst->predictedTarget, target);
+            set(thread.pc, *target);
+            stats.sequentialDirectBranches++;
+            DPRINTF(Branch, "Direct branch to the next instruction taken"
+                " at decode: %s target: %s\n", *inst, *target);
+            return;
+        }
+    }
+
     /* Skip non-control/sys call instructions */
     if (inst->staticInst->isControl() || inst->staticInst->isSyscall()){
         std::unique_ptr<PCStateBase> inst_pc(inst->pc->clone());
@@ -639,7 +659,10 @@ Fetch2::Fetch2Stats::Fetch2Stats(MinorCPU *cpu)
                "Number of memory atomic instructions successfully decoded"),
       ADD_STAT(sequentialPredictions, statistics::units::Count::get(),
                "Number of taken predictions to the next instruction that"
-               " kept the fetch stream")
+               " kept the fetch stream"),
+      ADD_STAT(sequentialDirectBranches, statistics::units::Count::get(),
+               "Number of direct branches to the next instruction taken at"
+               " decode without a prediction")
 {
     totalInstructions.flags(statistics::total);
     intInstructions.flags(statistics::total);
@@ -649,6 +672,7 @@ Fetch2::Fetch2Stats::Fetch2Stats(MinorCPU *cpu)
     storeInstructions.flags(statistics::total);
     amoInstructions.flags(statistics::total);
     sequentialPredictions.flags(statistics::total);
+    sequentialDirectBranches.flags(statistics::total);
 }
 
 void

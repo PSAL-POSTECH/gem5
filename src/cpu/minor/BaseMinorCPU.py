@@ -385,7 +385,8 @@ class BaseMinorCPU(BaseCPU):
         "A branch predicted taken to the instruction that follows it does"
         " not change the fetch stream: Fetch2 goes on decoding the line with"
         " the predicted PC state (e.g. RISC-V vset*, whose target carries"
-        " the new vtype and vl)",
+        " the new vtype and vl). A direct unconditional branch to the"
+        " instruction that follows is taken at decode without a prediction",
     )
 
     decodeInputBufferSize = Param.Unsigned(
