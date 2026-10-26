@@ -1,4 +1,4 @@
-#include "cpu/minor/vcix_accel_model.hh"
+#include "cpu/minor/coprocessor_model.hh"
 
 #include <dlfcn.h>
 
@@ -19,7 +19,7 @@ namespace
 {
 
 /** A name as a gem5 statistic: each character outside [A-Za-z0-9_] becomes
- *  '_', the rule vcix_accel::Instance::stat_name follows */
+ *  '_', the rule cp::Instance::stat_name follows */
 std::string
 statName(const char *name)
 {
@@ -37,7 +37,7 @@ const char *const kindNames[] = {"admitted", "capacity", "cycles",
 
 } // anonymous namespace
 
-VcixAccelStats::UnitStats::UnitStats(statistics::Group *vcix,
+CoprocessorStats::UnitStats::UnitStats(statistics::Group *vcix,
     const std::string &name, const std::string &port,
     const std::string &unit_of_work) :
     statistics::Group(vcix, name.c_str()),
@@ -57,7 +57,7 @@ VcixAccelStats::UnitStats::UnitStats(statistics::Group *vcix,
     utilizedCycles = admitted / capacity;
 }
 
-VcixAccelStats::CountStats::CountStats(statistics::Group *vcix,
+CoprocessorStats::CountStats::CountStats(statistics::Group *vcix,
     const std::string &name) :
     statistics::Group(vcix, name.c_str())
 {
@@ -66,7 +66,7 @@ VcixAccelStats::CountStats::CountStats(statistics::Group *vcix,
 /** Groups the entries into units by name and the COUNT entries into one group
  *  of scalars per unit, in the order the list first names them; names are
  *  matched as statName prints them, two that meet there are fatal */
-VcixAccelStats::VcixAccelStats(statistics::Group *parent,
+CoprocessorStats::CoprocessorStats(statistics::Group *parent,
     const vcix_model *model, void *self) :
     statistics::Group(parent, "vcix"),
     model(model),
@@ -172,7 +172,7 @@ VcixAccelStats::VcixAccelStats(statistics::Group *parent,
 }
 
 std::vector<uint64_t>
-VcixAccelStats::read() const
+CoprocessorStats::read() const
 {
     std::vector<uint64_t> values(scalarOf.size());
     model->read_stats(self, values.data());
@@ -180,14 +180,14 @@ VcixAccelStats::read() const
 }
 
 void
-VcixAccelStats::resetStats()
+CoprocessorStats::resetStats()
 {
     statistics::Group::resetStats();
     base = read();
 }
 
 void
-VcixAccelStats::preDumpStats()
+CoprocessorStats::preDumpStats()
 {
     statistics::Group::preDumpStats();
     const std::vector<uint64_t> values = read();
@@ -199,7 +199,7 @@ VcixAccelStats::preDumpStats()
 }
 
 const vcix_model *
-VcixAccelModel::load(const std::string &path)
+CoprocessorModel::load(const std::string &path)
 {
     static std::map<std::string, const vcix_model *> loaded;
 
@@ -207,20 +207,20 @@ VcixAccelModel::load(const std::string &path)
     if (found != loaded.end())
         return found->second;
 
-    fatal_if(path.empty(), "A VcixAccel functional unit names no vcixModel");
+    fatal_if(path.empty(), "A Coprocessor functional unit names no coprocessorModel");
 
     void *lib = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
     fatal_if(!lib, "Cannot load VCIX accelerator model: %s", dlerror());
 
     auto entry = reinterpret_cast<const vcix_model *(*)()>(
-        dlsym(lib, "vcix_accel_model"));
-    fatal_if(!entry, "%s does not export vcix_accel_model", path);
+        dlsym(lib, "coprocessor_model"));
+    fatal_if(!entry, "%s does not export coprocessor_model", path);
 
     const vcix_model *model = entry();
-    fatal_if(!model, "%s: vcix_accel_model() returned no table", path);
-    fatal_if(model->abi_version != VCIX_ACCEL_ABI_VERSION,
+    fatal_if(!model, "%s: coprocessor_model() returned no table", path);
+    fatal_if(model->abi_version != COPROCESSOR_ABI_VERSION,
         "%s has ABI %u, gem5 has %u", path, model->abi_version,
-        VCIX_ACCEL_ABI_VERSION);
+        COPROCESSOR_ABI_VERSION);
     fatal_if(!model->create || !model->destroy || !model->can_accept ||
         !model->issue || !model->squash || !model->commit,
         "%s: the table leaves create, destroy or a timing-face function"
@@ -230,14 +230,14 @@ VcixAccelModel::load(const std::string &path)
     return model;
 }
 
-VcixAccelModel::VcixAccelModel(const std::string &path,
+CoprocessorModel::CoprocessorModel(const std::string &path,
     const std::vector<std::string> &keys,
     const std::vector<std::string> &values,
     statistics::Group *parent) :
     model(load(path))
 {
     fatal_if(keys.size() != values.size(),
-        "vcixConfigKeys and vcixConfigValues differ in length");
+        "coprocessorConfigKeys and coprocessorConfigValues differ in length");
 
     std::map<std::string, std::string> settings;
     for (size_t i = 0; i < keys.size(); i++)
@@ -262,10 +262,10 @@ VcixAccelModel::VcixAccelModel(const std::string &path,
         "%s: the table has num_stats but leaves stat or read_stats NULL",
         path);
     if (model->num_stats(self) > 0)
-        stats = std::make_unique<VcixAccelStats>(parent, model, self);
+        stats = std::make_unique<CoprocessorStats>(parent, model, self);
 }
 
-VcixAccelModel::~VcixAccelModel()
+CoprocessorModel::~CoprocessorModel()
 {
     model->destroy(self);
 }

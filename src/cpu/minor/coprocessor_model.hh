@@ -1,8 +1,8 @@
-/* One instance of a VCIX accelerator model (vcix_accel.h), made from a shared
+/* One instance of a VCIX accelerator model (coprocessor.h), made from a shared
  * library. */
 
-#ifndef __CPU_MINOR_VCIX_ACCEL_MODEL_HH__
-#define __CPU_MINOR_VCIX_ACCEL_MODEL_HH__
+#ifndef __CPU_MINOR_COPROCESSOR_MODEL_HH__
+#define __CPU_MINOR_COPROCESSOR_MODEL_HH__
 
 #include <cstdint>
 #include <memory>
@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "base/statistics.hh"
-#include "cpu/minor/vcix_accel.h"
+#include "cpu/minor/coprocessor.h"
 
 namespace gem5
 {
@@ -21,11 +21,11 @@ namespace minor
 /** The statistics a model counts at each unit's primary port, as the group
  *  'vcix'. A reset takes the model's cumulative values as the base; a dump
  *  shows each value less its base, except a unit's capacity, a constant. */
-class VcixAccelStats : public statistics::Group
+class CoprocessorStats : public statistics::Group
 {
   public:
-    /** Fatal if the model's list of statistics breaks vcix_accel.h */
-    VcixAccelStats(statistics::Group *parent, const vcix_model *model,
+    /** Fatal if the model's list of statistics breaks coprocessor.h */
+    CoprocessorStats(statistics::Group *parent, const vcix_model *model,
         void *self);
 
     void resetStats() override;
@@ -67,20 +67,20 @@ class VcixAccelStats : public statistics::Group
     std::vector<uint64_t> base;
 };
 
-class VcixAccelModel
+class CoprocessorModel
 {
   public:
     /** Fatal if the library cannot be used or the model refuses the keys;
      *  the model's statistics, if it has any, go under parent */
-    VcixAccelModel(const std::string &path,
+    CoprocessorModel(const std::string &path,
         const std::vector<std::string> &keys,
         const std::vector<std::string> &values,
         statistics::Group *parent);
 
-    ~VcixAccelModel();
+    ~CoprocessorModel();
 
-    VcixAccelModel(const VcixAccelModel &) = delete;
-    VcixAccelModel &operator=(const VcixAccelModel &) = delete;
+    CoprocessorModel(const CoprocessorModel &) = delete;
+    CoprocessorModel &operator=(const CoprocessorModel &) = delete;
 
     bool
     owns(uint32_t bits) const
@@ -139,10 +139,10 @@ class VcixAccelModel
     const vcix_model *model;
     void *self;
 
-    std::unique_ptr<VcixAccelStats> stats;
+    std::unique_ptr<CoprocessorStats> stats;
 };
 
 } // namespace minor
 } // namespace gem5
 
-#endif /* __CPU_MINOR_VCIX_ACCEL_MODEL_HH__ */
+#endif /* __CPU_MINOR_COPROCESSOR_MODEL_HH__ */

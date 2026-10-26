@@ -58,7 +58,7 @@ class Vcix : public RiscvStaticInst
 
   public:
     Vcix(ExtMachInst _machInst)
-        : RiscvStaticInst("vcix", _machInst, VcixAccelOp)
+        : RiscvStaticInst("vcix", _machInst, CoprocessorOp)
     {
         setRegIdxArrays(
             reinterpret_cast<RegIdArrayPtr>(
@@ -134,7 +134,7 @@ class AccelCustom1 : public RiscvStaticInst
 
   public:
     AccelCustom1(ExtMachInst _machInst)
-        : RiscvStaticInst("custom1", _machInst, VcixAccelOp)
+        : RiscvStaticInst("custom1", _machInst, CoprocessorOp)
     {
         setRegIdxArrays(
             reinterpret_cast<RegIdArrayPtr>(

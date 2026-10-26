@@ -175,17 +175,17 @@ class MinorFU : public SimObject
     std::vector<MinorFUTiming *> timings;
 
     /** Shared library of the VCIX accelerator model this unit asks */
-    std::string vcixModel;
+    std::string coprocessorModel;
 
     /** The unit whose busy cycles this FU counts toward, or empty */
     std::string unit;
 
     /** The machine description of that model, as parallel keys and values */
-    std::vector<std::string> vcixConfigKeys;
-    std::vector<std::string> vcixConfigValues;
+    std::vector<std::string> coprocessorConfigKeys;
+    std::vector<std::string> coprocessorConfigValues;
 
     /** The most instructions the unit has in flight for its model */
-    unsigned int vcixMaxInFlight;
+    unsigned int coprocessorMaxInFlight;
 
     /** Cycles an instruction waits for its model's ready before a warning */
     unsigned int vcixReadyWarnCycles;
@@ -198,11 +198,11 @@ class MinorFU : public SimObject
         issueLat(params.issueLat),
         cantForwardFromFUIndices(params.cantForwardFromFUIndices),
         timings(params.timings),
-        vcixModel(params.vcixModel),
+        coprocessorModel(params.coprocessorModel),
         unit(params.unit),
-        vcixConfigKeys(params.vcixConfigKeys),
-        vcixConfigValues(params.vcixConfigValues),
-        vcixMaxInFlight(params.vcixMaxInFlight),
+        coprocessorConfigKeys(params.coprocessorConfigKeys),
+        coprocessorConfigValues(params.coprocessorConfigValues),
+        coprocessorMaxInFlight(params.coprocessorMaxInFlight),
         vcixReadyWarnCycles(params.vcixReadyWarnCycles)
     { }
 };

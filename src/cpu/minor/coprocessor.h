@@ -1,6 +1,6 @@
-/* The C boundary between an accelerator model and a simulator. A model exports vcix_accel_model(). */
-#ifndef VCIX_ACCEL_H
-#define VCIX_ACCEL_H
+/* The C boundary between an accelerator model and a simulator. A model exports coprocessor_model(). */
+#ifndef COPROCESSOR_H
+#define COPROCESSOR_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define VCIX_ACCEL_ABI_VERSION 11u
+#define COPROCESSOR_ABI_VERSION 12u
 
 typedef uint64_t vcix_cycle_t;
 /* Names an issued instruction; later instructions have larger ids. */
@@ -112,7 +112,7 @@ typedef struct vcix_model {
   void (*read_stats)(void *self, uint64_t *values);
 } vcix_model;
 
-const vcix_model *vcix_accel_model(void);
+const vcix_model *coprocessor_model(void);
 
 static inline const vcix_encoding *vcix_owner(const vcix_model *model, uint32_t insn) {
   for (size_t i = 0; i < model->num_encodings; i++) {

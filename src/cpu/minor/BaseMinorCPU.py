@@ -135,7 +135,7 @@ class MinorFU(SimObject):
         1, "cycles until another instruction can be issued"
     )
     timings = VectorParam.MinorFUTiming([], "extra decoding rules")
-    vcixModel = Param.String(
+    coprocessorModel = Param.String(
         "", "VCIX accelerator model (.so) this unit asks"
     )
     unit = Param.String(
@@ -143,13 +143,13 @@ class MinorFU(SimObject):
         "the unit this FU belongs to; cycles in which any FU of the unit is"
         " occupied are counted as statistics under units.<unit>",
     )
-    vcixConfigKeys = VectorParam.String(
+    coprocessorConfigKeys = VectorParam.String(
         [], "keys of the machine description the model is configured from"
     )
-    vcixConfigValues = VectorParam.String(
-        [], "the value of each key in vcixConfigKeys, as written"
+    coprocessorConfigValues = VectorParam.String(
+        [], "the value of each key in coprocessorConfigKeys, as written"
     )
-    vcixMaxInFlight = Param.Unsigned(
+    coprocessorMaxInFlight = Param.Unsigned(
         8192,
         "instructions this unit may have in flight; at that many, none is"
         " issued to it and its model is not asked",
@@ -305,9 +305,9 @@ class MinorDefaultMiscFU(MinorFU):
     opLat = 1
 
 
-class MinorVcixAccelFU(MinorFU):
-    # Stall and latency come from the model named by vcixModel, not from here.
-    opClasses = minorMakeOpClassSet(["VcixAccel"])
+class MinorCoprocessorFU(MinorFU):
+    # Stall and latency come from the model named by coprocessorModel, not from here.
+    opClasses = minorMakeOpClassSet(["Coprocessor"])
     opLat = 1
     issueLat = 1
 

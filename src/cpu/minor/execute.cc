@@ -46,7 +46,7 @@
 #include "cpu/minor/exec_context.hh"
 #include "cpu/minor/fetch1.hh"
 #include "cpu/minor/lsq.hh"
-#include "cpu/minor/vcix_accel_model.hh"
+#include "cpu/minor/coprocessor_model.hh"
 #include "cpu/op_class.hh"
 #include "debug/Activity.hh"
 #include "debug/Branch.hh"
@@ -137,27 +137,27 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
     /* Make FUPipelines for each MinorFU */
     vcixInFlight.resize(numFuncUnits);
     vcixQueued.resize(numFuncUnits, 0);
-    vcixModels.resize(numFuncUnits);
+    coprocessorModels.resize(numFuncUnits);
 
     for (unsigned int i = 0; i < numFuncUnits; i++) {
         std::ostringstream fu_name;
         MinorFU *fu_description = fuDescriptions.funcUnits[i];
 
-        if (fu_description->opClasses->provides(VcixAccelOp)) {
-            fatal_if(fu_description->vcixModel.empty(),
-                "%s: functional unit %d takes VcixAccel instructions but"
-                " names no vcixModel", name_, i);
+        if (fu_description->opClasses->provides(CoprocessorOp)) {
+            fatal_if(fu_description->coprocessorModel.empty(),
+                "%s: functional unit %d takes Coprocessor instructions but"
+                " names no coprocessorModel", name_, i);
             fatal_if(cpu.numThreads != 1, "%s: functional unit %d: a VCIX"
                 " accelerator model takes back all it has in flight at once,"
                 " which needs a CPU of one thread", name_, i);
-            fatal_if(fu_description->vcixMaxInFlight < 1,
-                "%s: functional unit %d: vcixMaxInFlight must be >= 1",
+            fatal_if(fu_description->coprocessorMaxInFlight < 1,
+                "%s: functional unit %d: coprocessorMaxInFlight must be >= 1",
                 name_, i);
-            vcix_slots += fu_description->vcixMaxInFlight;
-            vcixModels[i] = std::make_unique<VcixAccelModel>(
-                fu_description->vcixModel,
-                fu_description->vcixConfigKeys,
-                fu_description->vcixConfigValues, fu_description);
+            vcix_slots += fu_description->coprocessorMaxInFlight;
+            coprocessorModels[i] = std::make_unique<CoprocessorModel>(
+                fu_description->coprocessorModel,
+                fu_description->coprocessorConfigKeys,
+                fu_description->coprocessorConfigValues, fu_description);
         }
 
         /* Note the total number of instruction slots (for sizing
@@ -585,10 +585,10 @@ vcixInsn(const StaticInst &inst)
         8u << mach_inst.vtype8.vsew, vlmul < 4 ? vlmul : vlmul - 8};
 }
 
-VcixAccelModel *
+CoprocessorModel *
 Execute::vcixOwner(uint32_t bits)
 {
-    for (const std::unique_ptr<VcixAccelModel> &accel : vcixModels) {
+    for (const std::unique_ptr<CoprocessorModel> &accel : coprocessorModels) {
         if (accel && accel->owns(bits))
             return accel.get();
     }
@@ -598,7 +598,7 @@ Execute::vcixOwner(uint32_t bits)
 void
 Execute::vcixTick()
 {
-    for (const std::unique_ptr<VcixAccelModel> &accel : vcixModels) {
+    for (const std::unique_ptr<CoprocessorModel> &accel : coprocessorModels) {
         if (accel && accel->ticks())
             accel->tick(cpu.curCycle());
     }
@@ -607,7 +607,7 @@ Execute::vcixTick()
 bool
 Execute::vcixTicks() const
 {
-    for (const std::unique_ptr<VcixAccelModel> &accel : vcixModels) {
+    for (const std::unique_ptr<CoprocessorModel> &accel : coprocessorModels) {
         if (accel && accel->ticks())
             return true;
     }
@@ -627,7 +627,7 @@ Execute::vcixRelease()
             if (!inst->vcixResultPending)
                 continue;
 
-            if (vcixModels[i]->ready(inst->vcixId, now)) {
+            if (coprocessorModels[i]->ready(inst->vcixId, now)) {
                 scoreboard[inst->id.threadId].markInstDestsPredictable(inst);
                 inst->vcixResultPending = false;
             } else if (warn_cycles != 0 && !inst->vcixReadyWarned &&
@@ -661,7 +661,7 @@ Execute::vcixSquash(unsigned int fu_index)
     if (in_flight.empty())
         return;
 
-    vcixModels[fu_index]->squash(in_flight.front()->vcixId, cpu.curCycle());
+    coprocessorModels[fu_index]->squash(in_flight.front()->vcixId, cpu.curCycle());
     in_flight.clear();
 }
 
@@ -800,18 +800,18 @@ Execute::issue(ThreadID thread_id)
                         DPRINTF(MinorExecute, "Can't issue inst: %s yet\n",
                             *inst);
                     } else if (!inst->isFault() &&
-                        inst->staticInst->opClass() == VcixAccelOp)
+                        inst->staticInst->opClass() == CoprocessorOp)
                     {
-                        VcixAccelModel &accel = *vcixModels[fu_index];
+                        CoprocessorModel &accel = *coprocessorModels[fu_index];
                         const vcix_insn vcix = vcixInsn(*inst->staticInst);
                         const Cycles now = cpu.curCycle();
                         const bool owned = accel.owns(vcix.bits);
 
                         if (vcixQueued[fu_index] >=
-                            fu->description.vcixMaxInFlight)
+                            fu->description.coprocessorMaxInFlight)
                         {
                             DPRINTF(MinorExecute, "Can't issue inst: %s to"
-                                " FU: %d, it has its vcixMaxInFlight"
+                                " FU: %d, it has its coprocessorMaxInFlight"
                                 " instructions in flight\n",
                                 *inst, fu_index);
                         } else if (!owned && vcixOwner(vcix.bits)) {
@@ -1232,10 +1232,10 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
 
         DPRINTF(MinorExecute, "Committing inst: %s\n", *inst);
 
-        if (inst->staticInst->opClass() == VcixAccelOp) {
+        if (inst->staticInst->opClass() == CoprocessorOp) {
             const auto &rv_inst = static_cast<
                 const RiscvISA::RiscvStaticInst &>(*inst->staticInst);
-            VcixAccelModel &accel = *vcixModels[inst->vcixFUIndex];
+            CoprocessorModel &accel = *coprocessorModels[inst->vcixFUIndex];
 
             if (!accel.owns(rv_inst.machInst.instBits)) {
                 fault = std::make_shared<RiscvISA::IllegalInstFault>(
@@ -1658,7 +1658,7 @@ Execute::commit(ThreadID thread_id, bool only_commit_microops, bool discard,
             ex_info.inFlightInsts->pop();
 
             if (!inst->isFault() &&
-                inst->staticInst->opClass() == VcixAccelOp)
+                inst->staticInst->opClass() == CoprocessorOp)
             {
                 const std::list<MinorDynInstPtr> &in_flight =
                     vcixInFlight[inst->vcixFUIndex];
@@ -2243,8 +2243,8 @@ Execute::UnitStats::UnitStats(MinorCPU &cpu,
         const std::string &name = fus[i]->description.unit;
         if (name.empty())
             continue;
-        fatal_if(!fus[i]->description.vcixModel.empty(),
-            "%s: functional unit %d names both the unit %s and a vcixModel;"
+        fatal_if(!fus[i]->description.coprocessorModel.empty(),
+            "%s: functional unit %d names both the unit %s and a coprocessorModel;"
             " a VCIX unit is counted by its model", cpu.name(), i, name);
         fatal_if(name.find_first_not_of("abcdefghijklmnopqrstuvwxyz"
             "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_") != std::string::npos,

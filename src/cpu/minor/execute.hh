@@ -57,7 +57,7 @@
 #include "cpu/minor/lsq.hh"
 #include "cpu/minor/pipe_data.hh"
 #include "cpu/minor/scoreboard.hh"
-#include "cpu/minor/vcix_accel_model.hh"
+#include "cpu/minor/coprocessor_model.hh"
 
 namespace gem5
 {
@@ -270,10 +270,10 @@ class Execute : public Named
     unsigned int issue(ThreadID thread_id);
 
     /** Per functional unit, its VCIX accelerator model instance or nullptr */
-    std::vector<std::unique_ptr<VcixAccelModel>> vcixModels;
+    std::vector<std::unique_ptr<CoprocessorModel>> coprocessorModels;
 
     /** The model instance that owns these instruction bits, or nullptr */
-    VcixAccelModel *vcixOwner(uint32_t bits);
+    CoprocessorModel *vcixOwner(uint32_t bits);
 
     /** Tick every model instance, before the cycle's commit and issue */
     void vcixTick();
@@ -403,7 +403,7 @@ class Execute : public Named
     class UnitStats : public statistics::Group
     {
       public:
-        /** Fatal if an FU names both a unit and a vcixModel, or a unit
+        /** Fatal if an FU names both a unit and a coprocessorModel, or a unit
          *  that is not a statistic name */
         UnitStats(MinorCPU &cpu, const std::vector<FUPipeline *> &fus);
 
