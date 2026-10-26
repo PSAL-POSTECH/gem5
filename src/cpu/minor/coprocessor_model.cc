@@ -2,10 +2,9 @@
 
 #include <dlfcn.h>
 
-#include <algorithm>
 #include <cstring>
 #include <map>
-#include <utility>
+#include <string>
 
 #include "base/logging.hh"
 
@@ -32,142 +31,63 @@ statName(const char *name)
     return out;
 }
 
-const char *const kindNames[] = {"admitted", "capacity", "cycles",
-    "occupancy"};
-
 } // anonymous namespace
 
-CoprocessorStats::UnitStats::UnitStats(statistics::Group *vcix,
-    const std::string &name, const std::string &port,
-    const std::string &unit_of_work) :
-    statistics::Group(vcix, name.c_str()),
-    admitted(this, "admitted", statistics::units::Count::get(),
-        (unit_of_work + " admitted at port " + port).c_str()),
-    capacity(this, "capacity",
-        statistics::units::Rate<statistics::units::Count,
-            statistics::units::Cycle>::get(),
-        (unit_of_work + " the unit can admit per cycle").c_str()),
-    cycles(this, "cycles", statistics::units::Cycle::get(),
-        "cycles the model was ticked, replays after a squash included"),
-    occupancy(this, "occupancy", statistics::units::Count::get(),
-        (unit_of_work + " held behind the port, summed over cycles").c_str()),
-    utilizedCycles(this, "utilized_cycles", statistics::units::Cycle::get(),
-        "admitted / capacity, the cycles admitting at full capacity takes")
-{
-    utilizedCycles = admitted / capacity;
-}
-
-CoprocessorStats::CountStats::CountStats(statistics::Group *vcix,
+CoprocessorStats::CounterGroup::CounterGroup(statistics::Group *vcix,
     const std::string &name) :
     statistics::Group(vcix, name.c_str())
 {
 }
 
-/** Groups the entries into units by name and the COUNT entries into one group
- *  of scalars per unit, in the order the list first names them; names are
- *  matched as statName prints them, two that meet there are fatal */
+/** One group per entry group, in the order the list first names them; names
+ *  are matched as statName prints them, two that meet there are fatal */
 CoprocessorStats::CoprocessorStats(statistics::Group *parent,
     const vcix_model *model, void *self) :
     statistics::Group(parent, "vcix"),
     model(model),
     self(self)
 {
-    struct Unit
-    {
-        const vcix_stat *first;
-        size_t at[4];
-    };
-
     const size_t n = model->num_stats(self);
     std::vector<const vcix_stat *> entries(n);
-    std::vector<Unit> found;
-    std::vector<std::pair<std::string, std::vector<size_t>>> tallies;
+    std::vector<std::vector<size_t>> members;
+    scalarOf.assign(n, nullptr);
+    base.assign(n, 0);
 
     for (size_t i = 0; i < n; i++) {
         const vcix_stat *e = model->stat(self, i);
-        fatal_if(!e || !e->unit || !e->name || !e->unit_of_work,
+        fatal_if(!e || !e->group || !e->name,
             "%s: statistic %d of %d is NULL or leaves a name NULL",
             model->name, i, n);
-        fatal_if(e->kind > VCIX_STAT_COUNT,
-            "%s: statistic %s.%s has the unknown kind %d", model->name,
-            e->unit, e->name, e->kind);
         entries[i] = e;
 
-        if (e->kind == VCIX_STAT_COUNT) {
-            auto tally = std::find_if(tallies.begin(), tallies.end(),
-                [e](const auto &t) { return t.first == statName(e->unit); });
-            if (tally == tallies.end())
-                tally = tallies.insert(tallies.end(), {statName(e->unit), {}});
-            for (size_t j : tally->second) {
-                fatal_if(strcmp(entries[j]->unit, e->unit),
-                    "%s: counts %s and %s are both %s as statistics",
-                    model->name, entries[j]->unit, e->unit, tally->first);
-                fatal_if(statName(entries[j]->name) == statName(e->name),
-                    "%s: counts %s::%s and %s::%s are both %s.%s as"
-                    " statistics", model->name, e->unit, entries[j]->name,
-                    e->unit, e->name, tally->first, statName(e->name));
-            }
-            tally->second.push_back(i);
-            continue;
+        size_t g = 0;
+        while (g < groups.size() &&
+                statName(entries[members[g][0]]->group) != statName(e->group))
+            g++;
+        if (g == groups.size()) {
+            groups.push_back(
+                std::make_unique<CounterGroup>(this, statName(e->group)));
+            members.emplace_back();
         }
-
-        auto unit = std::find_if(found.begin(), found.end(),
-            [e](const Unit &u) {
-                return statName(u.first->unit) == statName(e->unit);
-            });
-        if (unit == found.end())
-            unit = found.insert(found.end(), {e, {n, n, n, n}});
-        fatal_if(strcmp(unit->first->unit, e->unit),
-            "%s: units %s and %s are both %s as statistics", model->name,
-            unit->first->unit, e->unit, statName(e->unit));
-        fatal_if(strcmp(unit->first->name, e->name) ||
-            strcmp(unit->first->unit_of_work, e->unit_of_work),
-            "%s: the entries of unit %s disagree on their port or unit of"
-            " work", model->name, e->unit);
-        fatal_if(unit->at[e->kind] != n, "%s: unit %s has two %s entries",
-            model->name, e->unit, kindNames[e->kind]);
-        unit->at[e->kind] = i;
-    }
-
-    for (const auto &tally : tallies) {
-        for (const Unit &unit : found) {
-            fatal_if(statName(unit.first->unit) == tally.first,
-                "%s: %s names both a unit and a unit of counts",
-                model->name, tally.first);
+        for (size_t j : members[g]) {
+            fatal_if(strcmp(entries[j]->group, e->group),
+                "%s: groups %s and %s are both %s as statistics",
+                model->name, entries[j]->group, e->group, statName(e->group));
+            fatal_if(statName(entries[j]->name) == statName(e->name),
+                "%s: counters %s.%s and %s.%s are both %s.%s as statistics",
+                model->name, e->group, entries[j]->name, e->group, e->name,
+                statName(e->group), statName(e->name));
         }
-    }
+        members[g].push_back(i);
 
-    scalarOf.assign(n, nullptr);
-    constant.assign(n, false);
-    base.assign(n, 0);
-
-    for (const Unit &unit : found) {
-        for (unsigned kind = 0; kind < 4; kind++) {
-            fatal_if(unit.at[kind] == n, "%s: unit %s has no %s entry",
-                model->name, unit.first->unit, kindNames[kind]);
-        }
-        units.push_back(std::make_unique<UnitStats>(this,
-            statName(unit.first->unit), unit.first->name,
-            unit.first->unit_of_work));
-        UnitStats &stats = *units.back();
-        scalarOf[unit.at[VCIX_STAT_ADMITTED]] = &stats.admitted;
-        scalarOf[unit.at[VCIX_STAT_CAPACITY]] = &stats.capacity;
-        scalarOf[unit.at[VCIX_STAT_CYCLES]] = &stats.cycles;
-        scalarOf[unit.at[VCIX_STAT_OCCUPANCY]] = &stats.occupancy;
-        constant[unit.at[VCIX_STAT_CAPACITY]] = true;
-    }
-
-    for (const auto &[unit, at] : tallies) {
-        counts.push_back(std::make_unique<CountStats>(this, unit));
-        CountStats &group = *counts.back();
-        for (size_t j : at) {
-            const std::string desc =
-                std::string(entries[j]->unit_of_work) + " counted";
-            group.names.push_back(std::make_unique<statistics::Scalar>(
-                &group, statName(entries[j]->name).c_str(),
-                statistics::units::Count::get(), desc.c_str()));
-            scalarOf[j] = group.names.back().get();
-        }
+        const std::string desc = e->capacity == 0 ? std::string(e->name) :
+            std::string(e->name) + ", at most " +
+            std::to_string(e->capacity) + " a cycle";
+        CounterGroup &group = *groups[g];
+        group.counters.push_back(std::make_unique<statistics::Scalar>(
+            &group, statName(e->name).c_str(),
+            statistics::units::Count::get(), desc.c_str()));
+        scalarOf[i] = group.counters.back().get();
     }
 }
 
@@ -191,11 +111,8 @@ CoprocessorStats::preDumpStats()
 {
     statistics::Group::preDumpStats();
     const std::vector<uint64_t> values = read();
-    for (size_t i = 0; i < values.size(); i++) {
-        const double value = constant[i] ? double(values[i]) :
-            double(values[i]) - double(base[i]);
-        *scalarOf[i] = value;
-    }
+    for (size_t i = 0; i < values.size(); i++)
+        *scalarOf[i] = double(values[i]) - double(base[i]);
 }
 
 const vcix_model *

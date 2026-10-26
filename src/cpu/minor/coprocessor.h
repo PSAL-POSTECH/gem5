@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define COPROCESSOR_ABI_VERSION 12u
+#define COPROCESSOR_ABI_VERSION 13u
 
 typedef uint64_t vcix_cycle_t;
 /* Names an issued instruction; later instructions have larger ids. */
@@ -54,22 +54,13 @@ typedef struct vcix_host {
   void (*mem_write)(void *ctx, uint64_t addr, const void *src, size_t bytes);
 } vcix_host;
 
-/* ADMITTED: what a unit's primary port let in. CAPACITY: what it can per cycle, a constant. CYCLES: the ticks, replays
-   included, plus each room a reset reopened in a cycle. OCCUPANCY: what was held behind it, summed. COUNT: unit
-   "committed", name an encoding's, its commits. Every kind but CAPACITY only grows from create on, reset or not. */
-#define VCIX_STAT_ADMITTED 0u
-#define VCIX_STAT_CAPACITY 1u
-#define VCIX_STAT_CYCLES 2u
-#define VCIX_STAT_OCCUPANCY 3u
-#define VCIX_STAT_COUNT 4u
-
-/* A unit is the four entries of one `unit`, counted at its primary port `name`; its utilization is
-   ADMITTED / (CAPACITY * CYCLES). No other port is listed. Strings live as long as the instance. */
+/* A counter of component `group`, or group "committed" with `name` an encoding's and capacity 0: its commits.
+   capacity > 0: the counter is a unit doing at most capacity a cycle; 0: a plain count. Values only grow from create
+   on, reset or not. Strings live as long as the instance. */
 typedef struct vcix_stat {
-  const char *unit;
+  const char *group;
   const char *name;
-  const char *unit_of_work;
-  uint32_t kind;
+  uint64_t capacity;
 } vcix_stat;
 
 /* Valid while the library is loaded. Read abi_version first, and nothing else if it differs. */
