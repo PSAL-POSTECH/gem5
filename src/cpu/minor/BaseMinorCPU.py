@@ -136,7 +136,7 @@ class MinorFU(SimObject):
     )
     timings = VectorParam.MinorFUTiming([], "extra decoding rules")
     coprocessorModel = Param.String(
-        "", "VCIX accelerator model (.so) this unit asks"
+        "", "Coprocessor model (.so) this unit asks"
     )
     unit = Param.String(
         "",

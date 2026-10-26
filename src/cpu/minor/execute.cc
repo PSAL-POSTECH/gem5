@@ -1239,7 +1239,7 @@ Execute::commitInst(MinorDynInstPtr inst, bool early_memory_issue,
 
             if (!accel.owns(rv_inst.machInst.instBits)) {
                 fault = std::make_shared<RiscvISA::IllegalInstFault>(
-                    "no VCIX accelerator model owns it", rv_inst.machInst);
+                    "no Coprocessor model owns it", rv_inst.machInst);
             } else {
                 fault = inst->staticInst->execute(&context, inst->traceData);
                 if (fault == NoFault) {
