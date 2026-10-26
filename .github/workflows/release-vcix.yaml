@@ -1,6 +1,6 @@
-name: Release gem5 for coprocessor
+name: Release gem5 for Coprocessor
 
-# A vcix-v* tag builds build/RISCV/gem5.opt in the system packages of the coprocessor image and
+# A vcix-v* tag builds build/RISCV/gem5.opt in the system packages of the Coprocessor image and
 # publishes it, with configs/, as the release of that tag -- once per host architecture, as
 # gem5-vcix-x86_64.tar.gz and gem5-vcix-aarch64.tar.gz (named after `uname -m`), each built natively
 # on the big runner of its architecture.
@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 env:
-  SETUP_URL: https://raw.githubusercontent.com/PSAL-POSTECH/coprocessor/main/setup
+  SETUP_URL: https://raw.githubusercontent.com/PSAL-POSTECH/Coprocessor/main/setup
   SCONS_VERSION: 4.7.0
 
 jobs:
@@ -40,7 +40,7 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Install the system packages of the coprocessor image
+      - name: Install the system packages of the Coprocessor image
         run: |
           mkdir /tmp/setup
           curl -fsSL --retry 3 -o /tmp/setup/versions.env "$SETUP_URL/versions.env"
@@ -67,7 +67,7 @@ jobs:
       - name: Publish the release
         uses: softprops/action-gh-release@v2
         with:
-          name: gem5 for coprocessor ${{ github.ref_name }}
+          name: gem5 for Coprocessor ${{ github.ref_name }}
           files: |
             ${{ env.ASSET }}
             ${{ env.ASSET }}.sha256
