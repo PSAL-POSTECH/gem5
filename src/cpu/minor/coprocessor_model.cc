@@ -127,7 +127,7 @@ CoprocessorModel::load(const std::string &path)
     fatal_if(path.empty(), "A Coprocessor functional unit names no coprocessorModel");
 
     void *lib = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
-    fatal_if(!lib, "Cannot load VCIX accelerator model: %s", dlerror());
+    fatal_if(!lib, "Cannot load Coprocessor model: %s", dlerror());
 
     auto entry = reinterpret_cast<const vcix_model *(*)()>(
         dlsym(lib, "coprocessor_model"));

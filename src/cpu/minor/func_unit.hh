@@ -174,7 +174,7 @@ class MinorFU : public SimObject
     /** Extra timing info to give timings to individual ops */
     std::vector<MinorFUTiming *> timings;
 
-    /** Shared library of the VCIX accelerator model this unit asks */
+    /** Shared library of the Coprocessor model this unit asks */
     std::string coprocessorModel;
 
     /** The unit whose busy cycles this FU counts toward, or empty */

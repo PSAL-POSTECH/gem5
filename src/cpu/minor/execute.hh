@@ -269,7 +269,7 @@ class Execute : public Named
     /** Try and issue instructions from the inputBuffer */
     unsigned int issue(ThreadID thread_id);
 
-    /** Per functional unit, its VCIX accelerator model instance or nullptr */
+    /** Per functional unit, its Coprocessor model instance or nullptr */
     std::vector<std::unique_ptr<CoprocessorModel>> coprocessorModels;
 
     /** The model instance that owns these instruction bits, or nullptr */

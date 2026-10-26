@@ -231,10 +231,10 @@ class MinorDynInst : public RefCounted
      *  to account for delay in absolute time */
     Cycles minimumCommitCycle{0};
 
-    /** The functional unit whose VCIX accelerator model it was issued to */
+    /** The functional unit whose Coprocessor model it was issued to */
     unsigned int vcixFUIndex = 0;
 
-    /** The id the VCIX accelerator model knows this instruction by */
+    /** The id the Coprocessor model knows this instruction by */
     uint64_t vcixId = 0;
 
     /** The model has not yet said the result of this instruction is ready */

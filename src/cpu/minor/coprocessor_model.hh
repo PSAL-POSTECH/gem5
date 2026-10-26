@@ -1,4 +1,4 @@
-/* One instance of a VCIX accelerator model (coprocessor.h), made from a shared
+/* One instance of a Coprocessor model (coprocessor.h), made from a shared
  * library. */
 
 #ifndef __CPU_MINOR_COPROCESSOR_MODEL_HH__
