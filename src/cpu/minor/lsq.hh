@@ -627,6 +627,14 @@ class LSQ : public Named
      *  between queues */
     void tryToSendToTransfers(LSQRequestPtr request);
 
+    /** Whether a store still in the transfers queue (not yet in the store
+     *  buffer, so not yet visible to a load's forwarding check) may touch a
+     *  byte of the load `load`: its physical or virtual range overlaps the
+     *  load's, it has no physical address to tell, or it is not on its way
+     *  to the store buffer (a store conditional, swap, atomic, release or
+     *  strictly ordered store, which goes to memory from transfers) */
+    bool storeInTransfersOverlaps(LSQRequestPtr load) const;
+
     /** Try to send (or resend) a memory request's next/only packet to
      *  the memory system.  Returns true if the request was successfully
      *  sent to memory (and was also the last packet in a transfer) */
