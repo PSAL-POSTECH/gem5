@@ -1475,9 +1475,18 @@ void
 LSQ::step()
 {
     /* Try to move address-translated requests between queues and issue
-     *  them */
-    if (!requests.empty())
-        tryToSendToTransfers(requests.front());
+     *  them: the head, then each request behind it that has become the
+     *  head, until one stays (in translation, still issuing its packets,
+     *  waiting for a retry or for room in the transfers queue).  A request
+     *  that finished translating while another was ahead of it gets its
+     *  turn here, so a queue that formed once drains as fast as memory
+     *  takes it, not one request a cycle */
+    while (!requests.empty()) {
+        LSQRequestPtr head = requests.front();
+        tryToSendToTransfers(head);
+        if (!requests.empty() && requests.front() == head)
+            break;
+    }
 
     storeBuffer.step();
 }
