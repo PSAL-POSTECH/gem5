@@ -665,28 +665,35 @@ Fetch1::evaluate()
     /* Step fetches through the icachePort queues and memory system */
     stepQueues();
 
-    /* As we've thrown away early lines, if there is a line, it must
-     *  be from the right stream */
+    /* Every completed line of an old stream at the front of transfers is
+     *  thrown away in this cycle, as a change of stream flushes the fetches
+     *  in flight at once; then a line of the current stream, if one has
+     *  arrived, goes on to Fetch2 */
+    while (!transfers.empty() &&
+        transfers.front()->isComplete() &&
+        transfers.front()->isDiscardable())
+    {
+        nextStageReserve[transfers.front()->id.threadId].freeReservation();
+
+        DPRINTF(Fetch, "Discarding translated fetch as it's for"
+            " an old stream\n");
+
+        /* Wake up next cycle just in case there was some other
+         *  action to do */
+        cpu.wakeupOnEvent(Pipeline::Fetch1StageId);
+
+        popAndDiscard(transfers);
+    }
+
     if (!transfers.empty() &&
         transfers.front()->isComplete())
     {
         Fetch1::FetchRequestPtr response = transfers.front();
 
-        if (response->isDiscardable()) {
-            nextStageReserve[response->id.threadId].freeReservation();
+        DPRINTF(Fetch, "Processing fetched line: %s\n",
+            response->id);
 
-            DPRINTF(Fetch, "Discarding translated fetch as it's for"
-                " an old stream\n");
-
-            /* Wake up next cycle just in case there was some other
-             *  action to do */
-            cpu.wakeupOnEvent(Pipeline::Fetch1StageId);
-        } else {
-            DPRINTF(Fetch, "Processing fetched line: %s\n",
-                response->id);
-
-            processResponse(response, line_out);
-        }
+        processResponse(response, line_out);
 
         popAndDiscard(transfers);
     }
