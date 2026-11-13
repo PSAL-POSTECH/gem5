@@ -5,6 +5,8 @@
 #define __CPU_MINOR_COPROCESSOR_MODEL_HH__
 
 #include <cstdint>
+#include <fstream>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -18,6 +20,8 @@ namespace gem5
 namespace minor
 {
 
+class CoprocessorTrace;
+
 /** A model's counters as the group 'vcix', one scalar vcix.<group>.<name> per
  *  entry. A reset takes the model's cumulative values as the base; a dump
  *  shows each value less its base. */
@@ -26,7 +30,7 @@ class CoprocessorStats : public statistics::Group
   public:
     /** Fatal if the model's list of statistics breaks coprocessor.h */
     CoprocessorStats(statistics::Group *parent, const vcix_model *model,
-        void *self);
+        void *self, CoprocessorTrace *trace);
 
     void resetStats() override;
     void preDumpStats() override;
@@ -44,6 +48,7 @@ class CoprocessorStats : public statistics::Group
 
     const vcix_model *model;
     void *self;
+    CoprocessorTrace *trace;
 
     std::vector<std::unique_ptr<CounterGroup>> groups;
 
@@ -51,6 +56,59 @@ class CoprocessorStats : public statistics::Group
     std::vector<statistics::Scalar *> scalarOf;
 
     std::vector<uint64_t> base;
+};
+
+/* Chrome Trace Event JSON "coprocessor-trace/1": X slices per instruction (issue to commit/squash),
+ * C events per unit group when a per-cycle counter delta changes, i instants at stats dump/reset.
+ * ts is a Minor cycle. */
+class CoprocessorTrace
+{
+  public:
+    static constexpr const char *schema = "coprocessor-trace/1";
+
+    CoprocessorTrace(const std::string &file, const vcix_model *model,
+        void *self);
+    ~CoprocessorTrace();
+
+    void issued(const vcix_insn &insn, uint64_t id, uint64_t now,
+        uint64_t latency);
+    void committed(uint64_t id, uint64_t now);
+    void squashed(uint64_t first, uint64_t now);
+    void cycle(uint64_t now);
+    void statsEvent(const char *what);
+
+  private:
+    struct Pending
+    {
+        uint32_t bits;
+        uint64_t ts;
+        uint64_t latency;
+        const char *name;
+    };
+
+    struct File
+    {
+        std::ofstream os;
+        bool first = true;
+        void close();
+    };
+
+    void slice(uint64_t id, const Pending &p, uint64_t now, bool squashed);
+
+    const vcix_model *model;
+    void *self;
+    std::shared_ptr<File> file;
+    std::map<uint64_t, Pending> pending;
+    uint64_t lastNow = 0;
+    uint64_t dumps = 0;
+    uint64_t resets = 0;
+    bool primed = false;
+
+    std::vector<std::vector<size_t>> members;
+    std::vector<std::string> groupNames;
+    std::vector<std::string> counterNames;
+    std::vector<uint64_t> prev;
+    std::vector<uint64_t> lastEmitted;
 };
 
 class CoprocessorModel
@@ -61,7 +119,7 @@ class CoprocessorModel
     CoprocessorModel(const std::string &path,
         const std::vector<std::string> &keys,
         const std::vector<std::string> &values,
-        statistics::Group *parent);
+        statistics::Group *parent, const std::string &traceFile = "");
 
     ~CoprocessorModel();
 
@@ -84,7 +142,10 @@ class CoprocessorModel
     uint64_t
     issue(const vcix_insn &insn, uint64_t id, uint64_t now)
     {
-        return model->issue(self, &insn, id, now);
+        const uint64_t latency = model->issue(self, &insn, id, now);
+        if (trace)
+            trace->issued(insn, id, now, latency);
+        return latency;
     }
 
     /** Every issued instruction from first on is taken back */
@@ -92,15 +153,19 @@ class CoprocessorModel
     squash(uint64_t first, uint64_t now)
     {
         model->squash(self, first, now);
+        if (trace)
+            trace->squashed(first, now);
     }
 
     void
     commit(const vcix_insn &insn, uint64_t id, uint64_t now)
     {
         model->commit(self, &insn, id, now);
+        if (trace)
+            trace->committed(id, now);
     }
 
-    bool ticks() const { return model->tick != nullptr; }
+    bool ticks() const { return model->tick != nullptr || trace; }
 
     /** Whether the result of an instruction issued with no latency is ready */
     bool
@@ -115,7 +180,10 @@ class CoprocessorModel
     void
     tick(uint64_t now)
     {
-        model->tick(self, now);
+        if (model->tick)
+            model->tick(self, now);
+        if (trace)
+            trace->cycle(now);
     }
 
   private:
@@ -125,6 +193,7 @@ class CoprocessorModel
     const vcix_model *model;
     void *self;
 
+    std::unique_ptr<CoprocessorTrace> trace;
     std::unique_ptr<CoprocessorStats> stats;
 };
 

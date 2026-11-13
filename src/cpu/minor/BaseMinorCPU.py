@@ -149,6 +149,11 @@ class MinorFU(SimObject):
     coprocessorConfigValues = VectorParam.String(
         [], "the value of each key in coprocessorConfigKeys, as written"
     )
+    coprocessorTraceFile = Param.String(
+        "",
+        "file in the output directory for a Chrome trace of the model's"
+        " calls and counters (coprocessor-trace/1); empty for none",
+    )
     coprocessorMaxInFlight = Param.Unsigned(
         8192,
         "instructions this unit may have in flight; at that many, none is"
