@@ -157,7 +157,8 @@ Execute::Execute(const std::string &name_, MinorCPU &cpu_,
             coprocessorModels[i] = std::make_unique<CoprocessorModel>(
                 fu_description->coprocessorModel,
                 fu_description->coprocessorConfigKeys,
-                fu_description->coprocessorConfigValues, fu_description);
+                fu_description->coprocessorConfigValues, fu_description,
+                fu_description->coprocessorTraceFile);
         }
 
         /* Note the total number of instruction slots (for sizing
