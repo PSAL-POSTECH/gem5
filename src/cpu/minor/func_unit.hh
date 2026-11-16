@@ -183,6 +183,7 @@ class MinorFU : public SimObject
     /** The machine description of that model, as parallel keys and values */
     std::vector<std::string> coprocessorConfigKeys;
     std::vector<std::string> coprocessorConfigValues;
+    std::string coprocessorTraceFile;
 
     /** The most instructions the unit has in flight for its model */
     unsigned int coprocessorMaxInFlight;
@@ -202,6 +203,7 @@ class MinorFU : public SimObject
         unit(params.unit),
         coprocessorConfigKeys(params.coprocessorConfigKeys),
         coprocessorConfigValues(params.coprocessorConfigValues),
+        coprocessorTraceFile(params.coprocessorTraceFile),
         coprocessorMaxInFlight(params.coprocessorMaxInFlight),
         vcixReadyWarnCycles(params.vcixReadyWarnCycles)
     { }
