@@ -496,6 +496,9 @@ class Queue : public Named, public Reservable
         return (ret < 0 ? 0 : ret);
     }
 
+    /** The i-th item from the head.  Like std::deque::operator[] */
+    const ElemType &operator[](unsigned int i) const { return queue[i]; }
+
     /** Head value.  Like std::queue::front */
     ElemType &front() { return queue.front(); }
 

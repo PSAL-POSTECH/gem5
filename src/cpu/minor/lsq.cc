@@ -1033,9 +1033,9 @@ LSQ::tryToSendToTransfers(LSQRequestPtr request)
                         is_llsc || is_swap || is_atomic || is_release);
 
     if (is_load) {
-        if (numStoresInTransfers != 0) {
-            DPRINTF(MinorMem, "Load request with stores still in transfers"
-                " queue, stalling\n");
+        if (numStoresInTransfers != 0 && storeInTransfersOverlaps(request)) {
+            DPRINTF(MinorMem, "Load request overlaps a store still in"
+                " transfers queue, stalling\n");
             return;
         }
     } else {
@@ -1168,6 +1168,26 @@ LSQ::tryToSendToTransfers(LSQRequestPtr request)
         request->setState(LSQRequest::Complete);
         moveFromRequestsToTransfers(request);
     }
+}
+
+bool
+LSQ::storeInTransfersOverlaps(LSQRequestPtr load) const
+{
+    for (unsigned int i = 0; i < transfers.occupiedSpace(); i++) {
+        LSQRequestPtr t = transfers[i];
+        if (t->isLoad)
+            continue;
+        if (t->state != LSQRequest::StoreToStoreBuffer ||
+            !t->request->hasPaddr() || !load->request->hasPaddr())
+            return true;
+        if (t->containsAddrRangeOf(load) != NoAddrRangeCoverage ||
+            LSQRequest::containsAddrRangeOf(
+                t->request->getVaddr(), t->request->getSize(),
+                load->request->getVaddr(), load->request->getSize()) !=
+                NoAddrRangeCoverage)
+            return true;
+    }
+    return false;
 }
 
 bool
@@ -1475,9 +1495,18 @@ void
 LSQ::step()
 {
     /* Try to move address-translated requests between queues and issue
-     *  them */
-    if (!requests.empty())
-        tryToSendToTransfers(requests.front());
+     *  them: the head, then each request behind it that has become the
+     *  head, until one stays (in translation, still issuing its packets,
+     *  waiting for a retry or for room in the transfers queue).  A request
+     *  that finished translating while another was ahead of it gets its
+     *  turn here, so a queue that formed once drains as fast as memory
+     *  takes it, not one request a cycle */
+    while (!requests.empty()) {
+        LSQRequestPtr head = requests.front();
+        tryToSendToTransfers(head);
+        if (!requests.empty() && requests.front() == head)
+            break;
+    }
 
     storeBuffer.step();
 }
